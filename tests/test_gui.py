@@ -117,3 +117,45 @@ def test_canvas_populate_and_inspector(qapp, tmp_path):
 
     win.canvas.set_all_selected(True)
     assert len(win.canvas.get_selected_photos()) == 2
+
+
+def test_comparison_staging_workflow(qapp, tmp_path):
+    win = VitupiMainWindow()
+
+    img1 = tmp_path / "photo_a.jpg"
+    img2 = tmp_path / "photo_b.jpg"
+    img1.write_bytes(b"\x00" * 20)
+    img2.write_bytes(b"\x00" * 20)
+
+    p1 = SelectedPhoto(str(img1), 1.0, 10, (320, 240), 0.8, 0.1, 0)
+    p2 = SelectedPhoto(str(img2), 2.0, 20, (320, 240), 0.9, 0.2, 0)
+
+    win.canvas.populate_photos([p1, p2])
+
+    # Initially in gallery
+    assert win.canvas.currentIndex() == 0
+
+    # Click Slot A on Card 1 -> stays in gallery!
+    card1 = win.canvas.cards[str(img1)]
+    card1.btn_a.click()
+    assert win.canvas.currentIndex() == 0
+    assert card1.staged_slot == "A"
+    assert win.canvas.staged_path_a == str(img1)
+
+    # Click Slot B on Card 2 -> stays in gallery!
+    card2 = win.canvas.cards[str(img2)]
+    card2.btn_b.click()
+    assert win.canvas.currentIndex() == 0
+    assert card2.staged_slot == "B"
+    assert win.canvas.staged_path_b == str(img2)
+    assert win.canvas.staging_bar.btn_compare.isEnabled() is True
+
+    # User explicitly clicks Compare A vs B
+    win.canvas.staging_bar.btn_compare.click()
+    assert win.canvas.currentIndex() == 1
+    assert win.canvas.compare_view.path_a == str(img1)
+    assert win.canvas.compare_view.path_b == str(img2)
+
+    # Click Back to Gallery
+    win.canvas.compare_view.back_to_gallery_requested.emit()
+    assert win.canvas.currentIndex() == 0
