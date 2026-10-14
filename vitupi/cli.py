@@ -22,42 +22,126 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    extract_cmd = subparsers.add_parser("extract", help="Extract photographs from a video or directory of videos.")
+    extract_cmd = subparsers.add_parser(
+        "extract",
+        help="Extract photographs from a video or directory of videos.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     extract_cmd.add_argument("input", help="Path to a video file or a directory of videos.")
     extract_cmd.add_argument(
         "-o", "--output",
         default="photos",
-        help="Destination directory for extracted photographs (default: photos/)",
+        help="Destination directory for extracted photographs.",
     )
     extract_cmd.add_argument(
         "-m", "--mode",
         choices=["conservative", "balanced", "exhaustive"],
         default="balanced",
-        help="Extraction density mode (default: balanced)",
+        help="Extraction density mode.",
     )
     extract_cmd.add_argument(
         "-p", "--preset",
         choices=["default", "sports", "security", "candid", "portrait"],
         default="default",
-        help="Domain-specific preset (default: default)",
+        help="Domain-specific preset.",
     )
     extract_cmd.add_argument(
         "--max-photos",
         type=int,
         default=100,
-        help="Maximum number of photographs to extract (default: 100)",
+        help="Maximum number of photographs to extract (0 or -1 for unlimited).",
     )
-    extract_cmd.add_argument(
+
+    # Granular sampling and threshold controls
+    tuning_group = extract_cmd.add_argument_group("Fine-grained Extraction Controls")
+    tuning_group.add_argument(
+        "--fps", "--base-fps",
+        dest="fps",
+        type=float,
+        default=None,
+        help="Coarse sampling rate in frames/sec (e.g. --fps 2.0). Overrides preset/mode default.",
+    )
+    tuning_group.add_argument(
+        "--dense-fps",
+        type=float,
+        default=None,
+        help="Burst sampling rate in frames/sec around visual events (e.g. --dense-fps 6.0).",
+    )
+    tuning_group.add_argument(
+        "-s", "--sensitivity", "--novelty-threshold",
+        dest="novelty_threshold",
+        type=float,
+        default=None,
+        help="Visual change sensitivity threshold [0.0 - 1.0]. Lower values capture subtler movements (e.g. -s 0.03).",
+    )
+    tuning_group.add_argument(
+        "--min-sharpness",
+        type=float,
+        default=None,
+        help="Minimum Laplacian variance required for an exported photo (e.g. --min-sharpness 20.0).",
+    )
+    tuning_group.add_argument(
+        "--min-distance",
+        type=float,
+        default=None,
+        help="Minimum temporal distance in seconds between consecutive exported photos (e.g. --min-distance 0.5).",
+    )
+    tuning_group.add_argument(
+        "--max-gap",
+        type=float,
+        default=None,
+        help="Maximum seconds in a continuous shot before forcing candidate evaluation (e.g. --max-gap 1.5).",
+    )
+    tuning_group.add_argument(
+        "--dedup-threshold",
+        type=int,
+        default=None,
+        help="Perceptual hash Hamming distance for duplicate suppression within bursts (e.g. --dedup-threshold 6).",
+    )
+    tuning_group.add_argument(
+        "--scene-threshold",
+        type=float,
+        default=None,
+        help="PySceneDetect cut detection sensitivity (default: 27.0).",
+    )
+
+    # Feature flags
+    feature_group = extract_cmd.add_argument_group("Feature Toggles")
+    feature_group.add_argument(
+        "--flattery",
+        action="store_true",
+        default=None,
+        help="Force facial flattery and portrait sharpness enhancement on.",
+    )
+    feature_group.add_argument(
+        "--no-flattery",
+        action="store_false",
+        dest="flattery",
+        help="Disable facial flattery enhancement.",
+    )
+    feature_group.add_argument(
+        "--action-peaks",
+        action="store_true",
+        default=None,
+        help="Force kinematic action-peak detection on.",
+    )
+    feature_group.add_argument(
+        "--no-action-peaks",
+        action="store_false",
+        dest="action_peaks",
+        help="Disable kinematic action-peak detection.",
+    )
+    feature_group.add_argument(
         "--no-dedup",
         action="store_true",
-        help="Disable near-duplicate perceptual suppression.",
+        help="Disable near-duplicate perceptual suppression entirely.",
     )
-    extract_cmd.add_argument(
+    feature_group.add_argument(
         "--no-contact-sheet",
         action="store_true",
         help="Disable overview contact sheet generation.",
     )
-    extract_cmd.add_argument(
+    feature_group.add_argument(
         "--no-scene-detection",
         action="store_true",
         help="Disable shot/scene boundary detection.",
@@ -70,6 +154,8 @@ def process_single_video(video_path: str, output_dir: str, config: VitupiConfig)
     print(f"\nProcessing: {video_path}")
     print(f"Output directory: {output_dir}")
     print(f"Mode: {config.mode.value} | Preset: {config.preset.value}")
+    print(f"Sampling: base={config.base_fps} fps, dense={config.dense_fps} fps, max_gap={config.max_temporal_gap}s, min_dist={config.min_temporal_distance}s")
+    print(f"Thresholds: sensitivity={config.novelty_threshold}, min_sharpness={config.min_sharpness_score}, dedup={config.dedup_threshold}")
 
     try:
         t0 = time.time()
@@ -97,10 +183,22 @@ def main(argv: List[str] = None) -> int:
 
     if args.command == "extract":
         target = args.input
+        max_photos = None if (args.max_photos is not None and args.max_photos <= 0) else args.max_photos
+
         config = VitupiConfig(
             mode=ExtractionMode(args.mode),
             preset=DomainPreset(args.preset),
-            max_photos=args.max_photos,
+            max_photos=max_photos,
+            base_fps=args.fps,
+            dense_fps=args.dense_fps,
+            novelty_threshold=args.novelty_threshold,
+            min_sharpness_score=args.min_sharpness,
+            min_temporal_distance=args.min_distance,
+            max_temporal_gap=args.max_gap,
+            dedup_threshold=args.dedup_threshold,
+            scene_threshold=args.scene_threshold,
+            flattery_filter=args.flattery,
+            action_peak_detection=args.action_peaks,
             duplicate_removal=not args.no_dedup,
             generate_contact_sheet=not args.no_contact_sheet,
             scene_detection=not args.no_scene_detection,
