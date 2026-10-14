@@ -20,7 +20,19 @@ def build_parser() -> argparse.ArgumentParser:
         prog="vitupi",
         description="Vitupi: Intelligent, content-aware photograph extraction from videos.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
+
+    # GUI subcommand
+    gui_cmd = subparsers.add_parser(
+        "gui",
+        help="Launch the interactive PyQt6 graphical user interface with MS Word-style ribbon and A/B comparison.",
+    )
+    gui_cmd.add_argument(
+        "video",
+        nargs="?",
+        default=None,
+        help="Optional initial video path to load in the GUI.",
+    )
 
     extract_cmd = subparsers.add_parser(
         "extract",
@@ -180,6 +192,18 @@ def process_single_video(video_path: str, output_dir: str, config: VitupiConfig)
 def main(argv: List[str] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command is None:
+        parser.print_help()
+        return 0
+
+    if args.command == "gui":
+        try:
+            from vitupi.gui import launch_gui
+            return launch_gui(initial_video=args.video)
+        except ImportError as e:
+            print(f"Error launching GUI: {e}\nPlease install PyQt6: pip install vitupi[gui]", file=sys.stderr)
+            return 1
 
     if args.command == "extract":
         target = args.input

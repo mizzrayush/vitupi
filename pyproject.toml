@@ -40,9 +40,17 @@ dev = [
 ai = [
     "scikit-image>=0.21.0",
 ]
+gui = [
+    "PyQt6>=6.5.0",
+]
+all = [
+    "PyQt6>=6.5.0",
+    "scikit-image>=0.21.0",
+]
 
 [project.scripts]
 vitupi = "vitupi.cli:main"
+vitupi-gui = "vitupi.gui.app:launch_gui"
 
 [tool.setuptools.packages.find]
 where = ["."]
