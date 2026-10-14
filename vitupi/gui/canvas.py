@@ -4,7 +4,7 @@ Features:
 - Gallery Grid View with Photo Cards and SVG action buttons
 - Comparison Staging Bar (select Slot A and Slot B freely in the gallery without view interruptions)
 - Dedicated Right-Side Live Photo Inspector Panel
-- Side-by-Side A/B Candidate Comparator with 'Back to Gallery' and 'Swap A ⇄ B'
+- Side-by-Side A/B Candidate Comparator with 'Back to Gallery' and 'Swap A and B'
 """
 
 import os
@@ -204,7 +204,7 @@ class PhotoCard(QFrame):
 
     def _update_slot_buttons_style(self):
         if self.staged_slot == "A":
-            self.btn_a.setText(" ★ Staged A")
+            self.btn_a.setText(" Staged A")
             self.btn_a.setStyleSheet("""
                 QPushButton {
                     font-size: 11px; font-weight: bold; padding: 2px 6px;
@@ -222,7 +222,7 @@ class PhotoCard(QFrame):
                 QPushButton:hover { background: #3182ce; color: white; }
             """)
         elif self.staged_slot == "B":
-            self.btn_b.setText(" ★ Staged B")
+            self.btn_b.setText(" Staged B")
             self.btn_b.setStyleSheet("""
                 QPushButton {
                     font-size: 11px; font-weight: bold; padding: 2px 6px;
@@ -297,8 +297,11 @@ class ComparisonStagingBar(QFrame):
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(14)
 
-        lbl_prefix = QLabel("⚖️ Compare Staging:")
+        icon_staging = QLabel()
+        icon_staging.setPixmap(get_svg_pixmap("compare", 16, "#ecc94b"))
+        lbl_prefix = QLabel("Compare Staging:")
         lbl_prefix.setStyleSheet("font-weight: bold; color: #cbd5e0; font-size: 12px;")
+        layout.addWidget(icon_staging)
         layout.addWidget(lbl_prefix)
 
         # Slot A status chip
@@ -374,7 +377,7 @@ class ComparisonStagingBar(QFrame):
     def set_slot_a(self, photo: Optional[SelectedPhoto]):
         self.photo_a = photo
         if photo:
-            self.chip_a.setText(f"★ Slot A: #{photo.frame_index} ({photo.timestamp_sec:.2f}s, Q:{int(photo.quality_score*100)}%)")
+            self.chip_a.setText(f"Slot A: #{photo.frame_index} ({photo.timestamp_sec:.2f}s, Q:{int(photo.quality_score*100)}%)")
             self.chip_a.setStyleSheet("""
                 background: #3a3215; color: #ecc94b; border: 1.5px solid #ecc94b;
                 border-radius: 4px; padding: 4px 10px; font-weight: bold; font-size: 12px;
@@ -390,7 +393,7 @@ class ComparisonStagingBar(QFrame):
     def set_slot_b(self, photo: Optional[SelectedPhoto]):
         self.photo_b = photo
         if photo:
-            self.chip_b.setText(f"★ Slot B: #{photo.frame_index} ({photo.timestamp_sec:.2f}s, Q:{int(photo.quality_score*100)}%)")
+            self.chip_b.setText(f"Slot B: #{photo.frame_index} ({photo.timestamp_sec:.2f}s, Q:{int(photo.quality_score*100)}%)")
             self.chip_b.setStyleSheet("""
                 background: #172a3a; color: #63b3ed; border: 1.5px solid #63b3ed;
                 border-radius: 4px; padding: 4px 10px; font-weight: bold; font-size: 12px;
@@ -409,7 +412,7 @@ class ComparisonStagingBar(QFrame):
         self.btn_compare.setEnabled(one_ready)
 
         if both_ready:
-            self.btn_compare.setText(" ⚖️ Compare Selected A vs B (Ready)")
+            self.btn_compare.setText(" Compare Selected A vs B (Ready)")
             self.btn_compare.setStyleSheet("""
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3182ce, stop:1 #38a169);
@@ -521,27 +524,27 @@ class PhotoInspectorPanel(QFrame):
 
         lbl_hdr_time = QLabel("Timestamp:")
         lbl_hdr_time.setStyleSheet("color: #a0aec0; font-size: 11px;")
-        self.lbl_time = QLabel("—")
+        self.lbl_time = QLabel("-")
         self.lbl_time.setStyleSheet("font-weight: bold; color: #e2e8f0; font-size: 12px;")
 
         lbl_hdr_dim = QLabel("Dimensions:")
         lbl_hdr_dim.setStyleSheet("color: #a0aec0; font-size: 11px;")
-        self.lbl_dim = QLabel("—")
+        self.lbl_dim = QLabel("-")
         self.lbl_dim.setStyleSheet("color: #cbd5e0; font-size: 12px;")
 
         lbl_hdr_q = QLabel("Quality Score:")
         lbl_hdr_q.setStyleSheet("color: #a0aec0; font-size: 11px;")
-        self.lbl_quality = QLabel("—")
+        self.lbl_quality = QLabel("-")
         self.lbl_quality.setStyleSheet("font-weight: bold; color: #68d391; font-size: 12px;")
 
         lbl_hdr_nov = QLabel("Visual Novelty:")
         lbl_hdr_nov.setStyleSheet("color: #a0aec0; font-size: 11px;")
-        self.lbl_novelty = QLabel("—")
+        self.lbl_novelty = QLabel("-")
         self.lbl_novelty.setStyleSheet("color: #63b3ed; font-size: 12px;")
 
         lbl_hdr_sc = QLabel("Scene Cut #:")
         lbl_hdr_sc.setStyleSheet("color: #a0aec0; font-size: 11px;")
-        self.lbl_scene = QLabel("—")
+        self.lbl_scene = QLabel("-")
         self.lbl_scene.setStyleSheet("color: #ecc94b; font-size: 12px;")
 
         m_layout.addWidget(lbl_hdr_time, 0, 0)
@@ -624,7 +627,7 @@ class PhotoInspectorPanel(QFrame):
 
         w, h = photo.dimensions
         ratio_str = "Portrait" if h > w else "Landscape" if w > h else "Square"
-        self.lbl_dim.setText(f"{w} × {h} px ({ratio_str})")
+        self.lbl_dim.setText(f"{w} x {h} px ({ratio_str})")
 
         quality_pct = int(photo.quality_score * 100)
         self.lbl_quality.setText(f"{quality_pct}% (Score: {photo.quality_score:.3f})")
@@ -699,7 +702,7 @@ class ComparisonPanel(QWidget):
         btn_back.clicked.connect(self.back_to_gallery_requested.emit)
 
         # Swap Slots Button
-        btn_swap = QPushButton(" Swap A ⇄ B")
+        btn_swap = QPushButton(" Swap A and B")
         btn_swap.setIcon(get_svg_icon("swap", 14, "#ecc94b"))
         btn_swap.setStyleSheet("""
             QPushButton {

@@ -32,7 +32,7 @@ class VitupiMainWindow(QMainWindow):
 
     def __init__(self, initial_video: Optional[str] = None):
         super().__init__()
-        self.setWindowTitle("Vitupi (V2P) — Intelligent Video to Photographs Studio")
+        self.setWindowTitle("Vitupi (V2P) - Intelligent Video to Photographs Studio")
         self.setWindowIcon(get_svg_icon("sparkles", 32, "#63b3ed"))
         self.resize(1360, 880)
         self.setMinimumSize(960, 680)
