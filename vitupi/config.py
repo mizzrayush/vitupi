@@ -21,6 +21,7 @@ class DomainPreset(str, Enum):
     SECURITY = "security"
     CANDID = "candid"
     PORTRAIT = "portrait"
+    CUSTOM = "custom"
 
 
 @dataclass
@@ -30,6 +31,7 @@ class VitupiConfig:
     # High-level controls
     mode: ExtractionMode = ExtractionMode.BALANCED
     preset: DomainPreset = DomainPreset.DEFAULT
+    custom_name: Optional[str] = None
     max_photos: Optional[int] = 100
 
     # Pipeline stages toggle
@@ -62,7 +64,11 @@ class VitupiConfig:
         if isinstance(self.mode, str):
             self.mode = ExtractionMode(self.mode.lower())
         if isinstance(self.preset, str):
-            self.preset = DomainPreset(self.preset.lower())
+            try:
+                self.preset = DomainPreset(self.preset.lower())
+            except ValueError:
+                self.custom_name = self.preset
+                self.preset = DomainPreset.CUSTOM
 
         # 1. Base defaults for balanced mode
         def_base_fps = 1.0
@@ -125,6 +131,15 @@ class VitupiConfig:
             def_min_temp_dist = 0.4
             def_max_temp_gap = 1.0
             def_dedup_thresh = 6
+        elif self.preset == DomainPreset.CUSTOM:
+            def_flattery = True
+            def_base_fps = 1.5
+            def_dense_fps = 5.0
+            def_novelty_thresh = 0.04
+            def_min_sharpness = 16.0
+            def_min_temp_dist = 0.4
+            def_max_temp_gap = 1.5
+            def_dedup_thresh = 6
 
         # 4. Fill in defaults ONLY if not explicitly provided by the caller
         if self.base_fps is None:
@@ -149,3 +164,45 @@ class VitupiConfig:
             self.action_peak_detection = def_action_peaks
         if self.motion_blur_penalty is None:
             self.motion_blur_penalty = def_blur_penalty
+
+    def to_dict(self) -> dict:
+        """Convert configuration to a clean, serializable dictionary."""
+        return {
+            "mode": self.mode.value if isinstance(self.mode, ExtractionMode) else str(self.mode),
+            "preset": self.preset.value if isinstance(self.preset, DomainPreset) else str(self.preset),
+            "custom_name": self.custom_name,
+            "max_photos": self.max_photos,
+            "scene_detection": self.scene_detection,
+            "adaptive_sampling": self.adaptive_sampling,
+            "quality_scoring": self.quality_scoring,
+            "duplicate_removal": self.duplicate_removal,
+            "generate_contact_sheet": self.generate_contact_sheet,
+            "generate_json_report": self.generate_json_report,
+            "base_fps": self.base_fps,
+            "dense_fps": self.dense_fps,
+            "min_temporal_distance": self.min_temporal_distance,
+            "max_temporal_gap": self.max_temporal_gap,
+            "novelty_threshold": self.novelty_threshold,
+            "dedup_threshold": self.dedup_threshold,
+            "min_sharpness_score": self.min_sharpness_score,
+            "scene_threshold": self.scene_threshold,
+            "flattery_filter": self.flattery_filter,
+            "action_peak_detection": self.action_peak_detection,
+            "motion_blur_penalty": self.motion_blur_penalty,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "VitupiConfig":
+        """Instantiate a VitupiConfig object from a dictionary."""
+        clean = dict(data)
+        mode = clean.pop("mode", "balanced")
+        preset = clean.pop("preset", "custom")
+        return cls(mode=mode, preset=preset, **clean)
+
+
+def get_preset_defaults(
+    preset: str | DomainPreset = DomainPreset.PORTRAIT,
+    mode: str | ExtractionMode = ExtractionMode.BALANCED,
+) -> VitupiConfig:
+    """Return a fully resolved VitupiConfig for a given preset and mode."""
+    return VitupiConfig(mode=mode, preset=preset)

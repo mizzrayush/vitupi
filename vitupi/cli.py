@@ -53,9 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     extract_cmd.add_argument(
         "-p", "--preset",
-        choices=["default", "sports", "security", "candid", "portrait"],
         default="default",
-        help="Domain-specific preset.",
+        help="Domain-specific preset ('default', 'sports', 'security', 'candid', 'portrait', 'custom', or saved custom preset).",
     )
     extract_cmd.add_argument(
         "--max-photos",
@@ -209,23 +208,34 @@ def main(argv: List[str] = None) -> int:
         target = args.input
         max_photos = None if (args.max_photos is not None and args.max_photos <= 0) else args.max_photos
 
+        from vitupi.presets import get_preset_manager
+
+        pm = get_preset_manager()
+        preset_cfg = pm.get_preset_config(args.preset)
+
+        try:
+            domain_preset = DomainPreset(args.preset.lower())
+        except ValueError:
+            domain_preset = DomainPreset.CUSTOM
+
         config = VitupiConfig(
             mode=ExtractionMode(args.mode),
-            preset=DomainPreset(args.preset),
-            max_photos=max_photos,
-            base_fps=args.fps,
-            dense_fps=args.dense_fps,
-            novelty_threshold=args.novelty_threshold,
-            min_sharpness_score=args.min_sharpness,
-            min_temporal_distance=args.min_distance,
-            max_temporal_gap=args.max_gap,
-            dedup_threshold=args.dedup_threshold,
-            scene_threshold=args.scene_threshold,
-            flattery_filter=args.flattery,
-            action_peak_detection=args.action_peaks,
-            duplicate_removal=not args.no_dedup,
-            generate_contact_sheet=not args.no_contact_sheet,
-            scene_detection=not args.no_scene_detection,
+            preset=domain_preset,
+            custom_name=args.preset if domain_preset == DomainPreset.CUSTOM else None,
+            max_photos=max_photos if max_photos is not None else preset_cfg.max_photos,
+            base_fps=args.fps if args.fps is not None else preset_cfg.base_fps,
+            dense_fps=args.dense_fps if args.dense_fps is not None else preset_cfg.dense_fps,
+            novelty_threshold=args.novelty_threshold if args.novelty_threshold is not None else preset_cfg.novelty_threshold,
+            min_sharpness_score=args.min_sharpness if args.min_sharpness is not None else preset_cfg.min_sharpness_score,
+            min_temporal_distance=args.min_distance if args.min_distance is not None else preset_cfg.min_temporal_distance,
+            max_temporal_gap=args.max_gap if args.max_gap is not None else preset_cfg.max_temporal_gap,
+            dedup_threshold=args.dedup_threshold if args.dedup_threshold is not None else preset_cfg.dedup_threshold,
+            scene_threshold=args.scene_threshold if args.scene_threshold is not None else preset_cfg.scene_threshold,
+            flattery_filter=args.flattery if args.flattery is not None else preset_cfg.flattery_filter,
+            action_peak_detection=args.action_peaks if args.action_peaks is not None else preset_cfg.action_peak_detection,
+            duplicate_removal=not args.no_dedup if args.no_dedup else preset_cfg.duplicate_removal,
+            generate_contact_sheet=not args.no_contact_sheet if args.no_contact_sheet else preset_cfg.generate_contact_sheet,
+            scene_detection=not args.no_scene_detection if args.no_scene_detection else preset_cfg.scene_detection,
         )
 
         if os.path.isfile(target):

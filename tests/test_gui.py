@@ -49,19 +49,25 @@ def test_main_window_with_initial_video(qapp, tmp_path):
 
 def test_ribbon_config_building(qapp):
     win = VitupiMainWindow()
-    # Modify some ribbon controls
+    # Switch to custom and modify ribbon controls
+    win.ribbon.preset_combo.setCurrentText("custom")
     win.ribbon.spin_base_fps.setValue(3.2)
     win.ribbon.spin_dense_fps.setValue(7.5)
     win.ribbon.spin_sensitivity.setValue(0.04)
     win.ribbon.spin_min_sharpness.setValue(32.0)
-    win.ribbon.preset_combo.setCurrentText("portrait")
+    win.ribbon.spin_blur_penalty.setValue(1.8)
+    win.ribbon.chk_adaptive_sampling.setChecked(False)
+    win.ribbon.chk_quality_scoring.setChecked(True)
 
     config = win.ribbon.build_config()
     assert config.base_fps == 3.2
     assert config.dense_fps == 7.5
     assert config.novelty_threshold == 0.04
     assert config.min_sharpness_score == 32.0
-    assert config.preset.value == "portrait"
+    assert config.motion_blur_penalty == 1.8
+    assert config.adaptive_sampling is False
+    assert config.quality_scoring is True
+    assert config.preset.value == "custom"
 
 
 def test_canvas_populate_and_inspector(qapp, tmp_path):
@@ -176,3 +182,45 @@ def test_fullscreen_toggle(qapp):
     # Toggle method runs without error
     win.toggle_fullscreen()
     assert win.isFullScreen() or not win.isFullScreen()  # State toggled cleanly
+
+
+def test_ribbon_manual_tweak_switches_to_custom(qapp):
+    win = VitupiMainWindow()
+    win.ribbon.preset_combo.setCurrentText("portrait")
+    assert win.ribbon.preset_combo.currentText() == "portrait"
+
+    # Modifying a parameter spinbox automatically flips preset to 'custom'
+    win.ribbon.spin_base_fps.setValue(5.5)
+    assert win.ribbon.preset_combo.currentText() == "custom"
+    assert "Active: custom" in win.ribbon.lbl_active_preset.text()
+
+
+def test_ribbon_custom_preset_persistence(qapp, tmp_path):
+    from vitupi.presets import PresetManager
+
+    # Isolated preset storage for test
+    custom_storage = tmp_path / "gui_presets.json"
+    win = VitupiMainWindow()
+    win.ribbon.preset_manager = PresetManager(storage_file=custom_storage)
+    win.ribbon._refresh_preset_combo("portrait")
+
+    # Save a custom preset
+    win.ribbon.spin_base_fps.setValue(4.0)
+    win.ribbon.spin_dense_fps.setValue(9.0)
+    cfg = win.ribbon.build_config()
+
+    win.ribbon.preset_manager.save_preset("cinematic_action", cfg)
+    win.ribbon._refresh_preset_combo(select_name="cinematic_action")
+
+    assert win.ribbon.preset_combo.currentText() == "cinematic_action"
+    assert win.ribbon.btn_delete_preset.isEnabled() is True
+    assert win.ribbon.spin_base_fps.value() == 4.0
+    assert win.ribbon.spin_dense_fps.value() == 9.0
+
+    # Delete custom preset
+    win.ribbon.preset_manager.delete_preset("cinematic_action")
+    win.ribbon._refresh_preset_combo(select_name="portrait")
+    assert "cinematic_action" not in [
+        win.ribbon.preset_combo.itemText(i) for i in range(win.ribbon.preset_combo.count())
+    ]
+    assert win.ribbon.btn_delete_preset.isEnabled() is False

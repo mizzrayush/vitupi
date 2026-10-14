@@ -82,23 +82,28 @@ class ExtractionPipeline:
                         current_scene = scenes[current_scene_idx]
                         novelty_detector.reset_anchor()
                         motion_analyzer.reset()
-                        sampler.trigger_burst(timestamp_sec)
+                        if self.config.adaptive_sampling:
+                            sampler.trigger_burst(timestamp_sec)
 
-                # Check adaptive sampling gate
+                # Check sampling gate
                 if not sampler.should_sample_frame(frame_idx, metadata.fps, timestamp_sec):
                     continue
 
-                # Motion and action inflection analysis
-                _, is_action_peak = motion_analyzer.analyze_frame(frame)
-                if self.config.action_peak_detection and is_action_peak:
-                    sampler.trigger_burst(timestamp_sec)
+                if self.config.adaptive_sampling:
+                    # Motion and action inflection analysis
+                    _, is_action_peak = motion_analyzer.analyze_frame(frame)
+                    if self.config.action_peak_detection and is_action_peak:
+                        sampler.trigger_burst(timestamp_sec)
 
-                # Novelty analysis
-                novelty = novelty_detector.compute_novelty(frame)
+                    # Novelty analysis
+                    novelty = novelty_detector.compute_novelty(frame)
 
-                # If significant novelty detected, trigger a burst window
-                if novelty >= self.config.novelty_threshold:
-                    sampler.trigger_burst(timestamp_sec)
+                    # If significant novelty detected, trigger a burst window
+                    if novelty >= self.config.novelty_threshold:
+                        sampler.trigger_burst(timestamp_sec)
+                else:
+                    novelty = 0.0
+                    is_action_peak = False
 
                 # Force candidate if action peak or scene boundary
                 is_boundary = (frame_idx == current_scene.start_frame)
@@ -123,7 +128,12 @@ class ExtractionPipeline:
         # Stage 6: Quality scoring and sharpness filtering
         active_candidates = []
         for cand in candidates:
-            score_candidate(cand, self.config)
+            if self.config.quality_scoring:
+                score_candidate(cand, self.config)
+            else:
+                cand.quality_score = 1.0
+                cand.is_rejected = False
+
             if cand.is_rejected:
                 stats.low_quality_filtered += 1
             else:

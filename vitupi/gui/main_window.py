@@ -76,6 +76,12 @@ class VitupiMainWindow(QMainWindow):
         self.ribbon.open_folder_clicked.connect(self._on_open_folder)
         self.ribbon.filter_sharpness_changed.connect(self.canvas.filter_by_sharpness)
         self.ribbon.toggle_fullscreen_clicked.connect(self.toggle_fullscreen)
+        self.ribbon.preset_saved.connect(
+            lambda name: self.status_bar.showMessage(f"Custom preset '{name}' saved to persistent storage.", 4000)
+        )
+        self.ribbon.preset_deleted.connect(
+            lambda name: self.status_bar.showMessage(f"Custom preset '{name}' deleted from disk.", 4000)
+        )
         self.canvas.selection_changed.connect(self._on_selection_changed)
 
         # 3. Status Bar

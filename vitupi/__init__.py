@@ -5,6 +5,7 @@ Intelligent, content-aware photograph extraction from videos.
 
 from vitupi.api import extract_photos
 from vitupi.config import DomainPreset, ExtractionMode, VitupiConfig
+from vitupi.presets import PresetManager, get_preset_manager
 from vitupi.exceptions import (
     ConfigurationError,
     ExtractionError,
@@ -29,6 +30,8 @@ __all__ = [
     "VitupiConfig",
     "ExtractionMode",
     "DomainPreset",
+    "PresetManager",
+    "get_preset_manager",
     "ExtractionResult",
     "SelectedPhoto",
     "VideoMetadata",
