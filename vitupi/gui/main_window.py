@@ -8,7 +8,7 @@ import subprocess
 import sys
 from typing import List, Optional
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -43,6 +43,10 @@ class VitupiMainWindow(QMainWindow):
         self._init_ui()
         self._apply_global_theme()
 
+        # Keyboard shortcuts
+        self.shortcut_fullscreen = QShortcut(QKeySequence("F11"), self)
+        self.shortcut_fullscreen.activated.connect(self.toggle_fullscreen)
+
         if initial_video and os.path.exists(initial_video):
             self.ribbon.video_path_edit.setText(os.path.abspath(initial_video))
 
@@ -71,6 +75,7 @@ class VitupiMainWindow(QMainWindow):
         self.ribbon.export_selected_clicked.connect(self._on_export_selected)
         self.ribbon.open_folder_clicked.connect(self._on_open_folder)
         self.ribbon.filter_sharpness_changed.connect(self.canvas.filter_by_sharpness)
+        self.ribbon.toggle_fullscreen_clicked.connect(self.toggle_fullscreen)
         self.canvas.selection_changed.connect(self._on_selection_changed)
 
         # 3. Status Bar
@@ -276,3 +281,22 @@ class VitupiMainWindow(QMainWindow):
             subprocess.Popen(["open", output_dir])
         else:
             subprocess.Popen(["xdg-open", output_dir])
+
+    def toggle_fullscreen(self):
+        """Toggle between full screen mode and maximized desktop window mode."""
+        if self.isFullScreen():
+            self.showMaximized()
+            self.ribbon.update_fullscreen_state(False)
+            self.status_bar.showMessage("Switched to Maximized Window mode. (Press F11 for Full Screen)", 3500)
+        else:
+            self.showFullScreen()
+            self.ribbon.update_fullscreen_state(True)
+            self.status_bar.showMessage("Switched to Full Screen mode. (Press F11 or Esc to exit)", 3500)
+
+    def keyPressEvent(self, event):
+        """Allow Escape key to exit full screen mode."""
+        if event.key() == Qt.Key.Key_Escape and self.isFullScreen():
+            self.toggle_fullscreen()
+            event.accept()
+        else:
+            super().keyPressEvent(event)

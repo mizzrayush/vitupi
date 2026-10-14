@@ -38,6 +38,7 @@ class RibbonPanel(QTabWidget):
     export_selected_clicked = pyqtSignal()
     open_folder_clicked = pyqtSignal()
     filter_sharpness_changed = pyqtSignal(float)
+    toggle_fullscreen_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -304,8 +305,8 @@ class RibbonPanel(QTabWidget):
         sel_layout.addWidget(btn_invert)
         layout.addWidget(sel_box)
 
-        # View Mode Switcher
-        view_box = QGroupBox("Display Mode")
+        # View Mode & Window Switcher
+        view_box = QGroupBox("Display & Window")
         view_layout = QHBoxLayout(view_box)
 
         btn_gallery = QPushButton(" Gallery Grid")
@@ -316,8 +317,13 @@ class RibbonPanel(QTabWidget):
         btn_compare.setIcon(get_svg_icon("compare", 14, "#63b3ed"))
         btn_compare.clicked.connect(lambda: self.switch_view_clicked.emit(1))
 
+        self.btn_fullscreen = QPushButton(" Full Screen (F11)")
+        self.btn_fullscreen.setIcon(get_svg_icon("fullscreen", 14, "#63b3ed"))
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen_clicked.emit)
+
         view_layout.addWidget(btn_gallery)
         view_layout.addWidget(btn_compare)
+        view_layout.addWidget(self.btn_fullscreen)
         layout.addWidget(view_box)
 
         # Live Sharpness Filter
@@ -431,3 +437,13 @@ class RibbonPanel(QTabWidget):
             generate_contact_sheet=self.chk_contact_sheet.isChecked(),
             generate_json_report=self.chk_json_report.isChecked(),
         )
+
+    def update_fullscreen_state(self, is_fullscreen: bool):
+        """Update the Full Screen button text and icon based on window state."""
+        if hasattr(self, "btn_fullscreen"):
+            if is_fullscreen:
+                self.btn_fullscreen.setIcon(get_svg_icon("fullscreen-exit", 14, "#63b3ed"))
+                self.btn_fullscreen.setText(" Exit Full Screen (F11)")
+            else:
+                self.btn_fullscreen.setIcon(get_svg_icon("fullscreen", 14, "#63b3ed"))
+                self.btn_fullscreen.setText(" Full Screen (F11)")

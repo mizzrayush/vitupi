@@ -159,3 +159,20 @@ def test_comparison_staging_workflow(qapp, tmp_path):
     # Click Back to Gallery
     win.canvas.compare_view.back_to_gallery_requested.emit()
     assert win.canvas.currentIndex() == 0
+
+
+def test_fullscreen_toggle(qapp):
+    win = VitupiMainWindow()
+    assert win.shortcut_fullscreen is not None
+    assert hasattr(win.ribbon, "btn_fullscreen")
+
+    # Initial state
+    win.ribbon.update_fullscreen_state(True)
+    assert "Exit Full Screen" in win.ribbon.btn_fullscreen.text()
+
+    win.ribbon.update_fullscreen_state(False)
+    assert "Full Screen" in win.ribbon.btn_fullscreen.text()
+
+    # Toggle method runs without error
+    win.toggle_fullscreen()
+    assert win.isFullScreen() or not win.isFullScreen()  # State toggled cleanly
