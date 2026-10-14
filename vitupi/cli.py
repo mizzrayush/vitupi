@@ -115,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="PySceneDetect cut detection sensitivity (default: 27.0).",
     )
+    tuning_group.add_argument(
+        "--motion-blur-penalty",
+        type=float,
+        default=None,
+        help="Multiplier penalizing high motion-blur frames (default: 1.0; e.g. 1.5).",
+    )
 
     # Feature flags
     feature_group = extract_cmd.add_argument_group("Feature Toggles")
@@ -157,6 +163,50 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable shot/scene boundary detection.",
     )
+    feature_group.add_argument(
+        "--no-adaptive-sampling",
+        action="store_true",
+        help="Disable adaptive burst sampling (sample strictly at base FPS).",
+    )
+    feature_group.add_argument(
+        "--no-quality-scoring",
+        action="store_true",
+        help="Disable composite quality and sharpness scoring.",
+    )
+
+    # Presets Subcommand
+    presets_cmd = subparsers.add_parser(
+        "presets",
+        help="List, inspect, save, and manage extraction presets (both built-in and persistent custom presets).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    presets_cmd.add_argument(
+        "-l", "--list",
+        action="store_true",
+        help="List all built-in and persistent custom presets.",
+    )
+    presets_cmd.add_argument(
+        "--show",
+        metavar="PRESET",
+        help="Show detailed configuration parameters for a specific preset.",
+    )
+    presets_cmd.add_argument(
+        "--save",
+        metavar="NAME",
+        help="Save current parameter settings as a named custom preset to disk.",
+    )
+    presets_cmd.add_argument(
+        "--delete",
+        metavar="NAME",
+        help="Delete a user-saved custom preset from disk.",
+    )
+    presets_cmd.add_argument("--fps", type=float, default=None, help="Base scan FPS for saved preset.")
+    presets_cmd.add_argument("--dense-fps", type=float, default=None, help="Burst FPS for saved preset.")
+    presets_cmd.add_argument("-s", "--sensitivity", type=float, default=None, help="Novelty sensitivity.")
+    presets_cmd.add_argument("--min-sharpness", type=float, default=None, help="Min sharpness score.")
+    presets_cmd.add_argument("--motion-blur-penalty", type=float, default=None, help="Motion blur penalty.")
+    presets_cmd.add_argument("--flattery", action="store_true", default=None, help="Enable facial flattery.")
+    presets_cmd.add_argument("--action-peaks", action="store_true", default=None, help="Enable action peak detection.")
 
     return parser
 
@@ -196,6 +246,75 @@ def main(argv: List[str] = None) -> int:
         parser.print_help()
         return 0
 
+    if args.command == "presets":
+        from vitupi.presets import get_preset_manager
+        pm = get_preset_manager()
+
+        if args.delete:
+            if pm.is_builtin(args.delete):
+                print(f"Error: '{args.delete}' is a system built-in preset and cannot be deleted.", file=sys.stderr)
+                return 1
+            if pm.delete_preset(args.delete):
+                print(f"Successfully deleted custom preset: '{args.delete}'")
+                return 0
+            else:
+                print(f"Error: Custom preset '{args.delete}' not found.", file=sys.stderr)
+                return 1
+
+        if args.save:
+            base_cfg = pm.get_preset_config("custom")
+            save_dict = base_cfg.to_dict()
+            if args.fps is not None:
+                save_dict["base_fps"] = args.fps
+            if args.dense_fps is not None:
+                save_dict["dense_fps"] = args.dense_fps
+            if args.sensitivity is not None:
+                save_dict["novelty_threshold"] = args.sensitivity
+            if args.min_sharpness is not None:
+                save_dict["min_sharpness_score"] = args.min_sharpness
+            if args.motion_blur_penalty is not None:
+                save_dict["motion_blur_penalty"] = args.motion_blur_penalty
+            if args.flattery is not None:
+                save_dict["flattery_filter"] = args.flattery
+            if args.action_peaks is not None:
+                save_dict["action_peak_detection"] = args.action_peaks
+
+            pm.save_preset(args.save, save_dict)
+            print(f"Successfully saved custom preset: '{args.save}' to {pm.storage_file}")
+            return 0
+
+        if args.show:
+            cfg = pm.get_preset_config(args.show)
+            if not cfg:
+                print(f"Error: Preset '{args.show}' not found.", file=sys.stderr)
+                return 1
+            is_built = pm.is_builtin(args.show)
+            print(f"\nPreset: {args.show} ({'Built-in' if is_built else 'Custom Saved'})")
+            print("-" * 50)
+            for k, v in sorted(cfg.to_dict().items()):
+                print(f"  {k:<26}: {v}")
+            print("-" * 50)
+            return 0
+
+        # Default: list all presets in a clean table
+        all_presets = pm.list_all_presets()
+        print("\nVitupi Available Presets:")
+        print(f"{'Preset Name':<18} {'Type':<12} {'Base FPS':<10} {'Burst FPS':<11} {'Novelty':<10} {'Min Focus':<11} {'Flattery'}")
+        print("-" * 84)
+        for name in all_presets:
+            p_type = "Built-in" if pm.is_builtin(name) else "Custom"
+            cfg = pm.get_preset_config(name)
+            fps_str = f"{cfg.base_fps:.1f}" if cfg.base_fps else "auto"
+            dense_str = f"{cfg.dense_fps:.1f}" if cfg.dense_fps else "auto"
+            nov_str = f"{cfg.novelty_threshold:.3f}" if cfg.novelty_threshold else "auto"
+            sharp_str = f"{cfg.min_sharpness_score:.1f}" if cfg.min_sharpness_score else "auto"
+            flat_str = "Yes" if cfg.flattery_filter else "No"
+            print(f"{name:<18} {p_type:<12} {fps_str:<10} {dense_str:<11} {nov_str:<10} {sharp_str:<11} {flat_str}")
+        print("-" * 84)
+        print("Use --preset <name> with 'vitupi extract' to run extraction with any preset.")
+        print("Use 'vitupi presets --save <name>' to create new custom presets via CLI.\n")
+        return 0
+
     if args.command == "gui":
         try:
             from vitupi.gui import launch_gui
@@ -231,11 +350,14 @@ def main(argv: List[str] = None) -> int:
             max_temporal_gap=args.max_gap if args.max_gap is not None else preset_cfg.max_temporal_gap,
             dedup_threshold=args.dedup_threshold if args.dedup_threshold is not None else preset_cfg.dedup_threshold,
             scene_threshold=args.scene_threshold if args.scene_threshold is not None else preset_cfg.scene_threshold,
+            motion_blur_penalty=args.motion_blur_penalty if args.motion_blur_penalty is not None else preset_cfg.motion_blur_penalty,
             flattery_filter=args.flattery if args.flattery is not None else preset_cfg.flattery_filter,
             action_peak_detection=args.action_peaks if args.action_peaks is not None else preset_cfg.action_peak_detection,
             duplicate_removal=not args.no_dedup if args.no_dedup else preset_cfg.duplicate_removal,
             generate_contact_sheet=not args.no_contact_sheet if args.no_contact_sheet else preset_cfg.generate_contact_sheet,
             scene_detection=not args.no_scene_detection if args.no_scene_detection else preset_cfg.scene_detection,
+            adaptive_sampling=not args.no_adaptive_sampling if args.no_adaptive_sampling else preset_cfg.adaptive_sampling,
+            quality_scoring=not args.no_quality_scoring if args.no_quality_scoring else preset_cfg.quality_scoring,
         )
 
         if os.path.isfile(target):

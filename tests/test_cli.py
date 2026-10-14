@@ -55,3 +55,35 @@ def test_cli_gui_subcommand():
     args_no_vid = parser.parse_args(["gui"])
     assert args_no_vid.command == "gui"
     assert args_no_vid.video is None
+
+
+def test_cli_presets_subcommand():
+    parser = build_parser()
+    args = parser.parse_args(["presets", "--list"])
+    assert args.command == "presets"
+    assert args.list is True
+
+    # Run main presets command
+    code = main(["presets", "--list"])
+    assert code == 0
+
+
+def test_cli_presets_save_show_and_delete(tmp_path, monkeypatch):
+    from vitupi.presets import PresetManager, get_preset_manager
+    storage = tmp_path / "cli_test_presets.json"
+    manager = PresetManager(storage_file=storage)
+    monkeypatch.setattr("vitupi.presets.get_preset_manager", lambda: manager)
+
+    # Save preset via CLI
+    code = main(["presets", "--save", "cli_custom", "--fps", "2.8", "--dense-fps", "7.0"])
+    assert code == 0
+    assert "cli_custom" in manager.list_all_presets()
+
+    # Show preset via CLI
+    code = main(["presets", "--show", "cli_custom"])
+    assert code == 0
+
+    # Delete preset via CLI
+    code = main(["presets", "--delete", "cli_custom"])
+    assert code == 0
+    assert "cli_custom" not in manager.list_all_presets()
