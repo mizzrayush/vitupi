@@ -2,8 +2,9 @@
 Master processing pipeline coordinating all extraction stages.
 """
 
+import os
 import time
-from typing import Optional
+from typing import Any, Callable, Dict, List, Optional
 from vitupi.config import VitupiConfig
 from vitupi.deduplication.similarity import suppress_near_duplicates
 from vitupi.detection.motion import MotionAnalyzer
@@ -174,3 +175,40 @@ class ExtractionPipeline:
             result.contact_sheet_path = cs_path
 
         return result
+
+    # Alias for pipeline execution
+    run = process
+
+
+def batch_extract_pipeline(
+    video_paths: List[str],
+    output_base_dir: str,
+    config: VitupiConfig,
+    max_workers: Optional[int] = None,
+    progress_callback: Optional[Callable[[int, int, str, Optional[ExtractionResult]], None]] = None,
+) -> List[ExtractionResult]:
+    """Execute photo extraction concurrently across multiple video files."""
+    import concurrent.futures
+
+    results = []
+    total = len(video_paths)
+    workers = max_workers or min(os.cpu_count() or 4, max(1, total))
+
+    def _process_one(idx: int, path: str):
+        sub_dir = os.path.join(output_base_dir, os.path.splitext(os.path.basename(path))[0])
+        pipeline = ExtractionPipeline(config=config)
+        res = pipeline.run(path, output_dir=sub_dir)
+        if progress_callback:
+            progress_callback(idx + 1, total, path, res)
+        return res
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_process_one, i, path): path for i, path in enumerate(video_paths)}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                res = future.result()
+                results.append(res)
+            except Exception:
+                continue
+
+    return results

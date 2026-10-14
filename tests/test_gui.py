@@ -224,3 +224,102 @@ def test_ribbon_custom_preset_persistence(qapp, tmp_path):
         win.ribbon.preset_combo.itemText(i) for i in range(win.ribbon.preset_combo.count())
     ]
     assert win.ribbon.btn_delete_preset.isEnabled() is False
+
+
+def test_timeline_widget(qapp, tmp_path):
+    from vitupi.gui.timeline import VideoTimelineWidget
+    from vitupi.models import SceneBoundary
+
+    timeline = VideoTimelineWidget()
+    assert timeline.height() == 72
+
+    timeline.set_duration(120.0)
+    assert timeline._duration == 120.0
+
+    scenes = [
+        SceneBoundary(scene_id=0, start_frame=0, end_frame=300, start_time_sec=0.0, end_time_sec=10.0),
+        SceneBoundary(scene_id=1, start_frame=301, end_frame=900, start_time_sec=10.0, end_time_sec=30.0),
+    ]
+    timeline.set_scenes(scenes)
+    assert len(timeline._scenes) == 2
+
+    p1 = SelectedPhoto(
+        path=str(tmp_path / "p1.jpg"),
+        timestamp_sec=5.5,
+        frame_index=150,
+        dimensions=(640, 480),
+        quality_score=0.91,
+        novelty_score=0.2,
+        scene_id=0,
+    )
+    timeline.set_photos([p1])
+    assert len(timeline._photos) == 1
+
+    timeline.select_photo(p1.path)
+    assert timeline._selected_photo_path == p1.path
+    assert abs(timeline._current_time - 5.5) < 1e-4
+
+    # Test coordinate math
+    x = timeline._time_to_x(60.0)
+    assert timeline._margin_left < x < timeline.width()
+    t = timeline._x_to_time(x)
+    assert abs(t - 60.0) < 0.5
+
+
+def test_batch_queue_dialog(qapp, tmp_path):
+    from vitupi.gui.batch_dialog import BatchQueueDialog
+
+    dialog = BatchQueueDialog()
+    assert dialog.windowTitle().startswith("Batch Processing Queue")
+    assert dialog.table.rowCount() == 0
+
+    # Add a video
+    v1 = tmp_path / "vid1.mp4"
+    v1.write_bytes(b"\x00" * 1024)
+    dialog._add_video_to_queue(str(v1))
+
+    assert dialog.table.rowCount() == 1
+    assert dialog.table.item(0, 0).text() == "vid1.mp4"
+    assert dialog.table.item(0, 2).text() == "Queued"
+
+    # Clear queue
+    dialog._on_clear_queue()
+    assert dialog.table.rowCount() == 0
+    assert len(dialog._video_paths) == 0
+
+
+def test_main_window_timeline_integration(qapp, tmp_path):
+    win = VitupiMainWindow()
+    win.show()
+    assert win.timeline is not None
+    assert not win.timeline.isHidden()
+
+    # Toggle timeline visibility
+    win._on_toggle_timeline()
+    assert win.timeline.isHidden() is True
+    win._on_toggle_timeline()
+    assert win.timeline.isHidden() is False
+
+    # Populate photos updates timeline
+    img1 = tmp_path / "sample.jpg"
+    img1.write_bytes(b"\x00" * 50)
+    p = SelectedPhoto(
+        path=str(img1),
+        timestamp_sec=12.5,
+        frame_index=300,
+        dimensions=(640, 480),
+        quality_score=0.95,
+        novelty_score=0.3,
+        scene_id=0,
+    )
+
+    from vitupi.models import ExtractionResult, ExtractionStatistics, VideoMetadata
+    meta = VideoMetadata(path="video.mp4", width=640, height=480, fps=24.0, total_frames=600, duration_sec=25.0)
+    stats = ExtractionStatistics(total_frames_in_video=600, frames_decoded=200, photos_exported=1, processing_time_sec=1.5)
+    result = ExtractionResult(source_video="video.mp4", photos=[p], metadata=meta, statistics=stats)
+
+    win.timeline.set_duration(result.metadata.duration_sec)
+    win.timeline.set_photos(result.photos)
+    assert win.timeline._duration == 25.0
+    assert len(win.timeline._photos) == 1
+

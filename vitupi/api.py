@@ -79,3 +79,25 @@ def extract_photos(
 
     pipeline = ExtractionPipeline(config=cfg)
     return pipeline.process(video_path=video_path, output_dir=output_dir)
+
+
+def batch_extract_photos(
+    video_paths: list,
+    output_dir: str = "photos/",
+    config: Optional[VitupiConfig] = None,
+    max_workers: Optional[int] = None,
+) -> list:
+    """Extract photographs from multiple videos in parallel.
+
+    Args:
+        video_paths: List of paths to video files.
+        output_dir: Root directory for extracted folders.
+        config: Optional VitupiConfig instance.
+        max_workers: Concurrency level (default: CPU cores count).
+
+    Returns:
+        List of ExtractionResult instances.
+    """
+    from vitupi.pipeline import batch_extract_pipeline
+    cfg = config or VitupiConfig()
+    return batch_extract_pipeline(video_paths, output_base_dir=output_dir, config=cfg, max_workers=max_workers)

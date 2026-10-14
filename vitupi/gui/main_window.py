@@ -20,9 +20,12 @@ from PyQt6.QtWidgets import (
 )
 
 from vitupi.config import DomainPreset, ExtractionMode, VitupiConfig
+from vitupi.gui.batch_dialog import BatchQueueDialog
+from vitupi.gui.benchmark_dialog import BenchmarkDialog
 from vitupi.gui.canvas import CentralCanvas
 from vitupi.gui.icons import get_svg_icon
 from vitupi.gui.ribbon import RibbonPanel
+from vitupi.gui.timeline import VideoTimelineWidget
 from vitupi.gui.worker import ExtractionWorker
 from vitupi.models import ExtractionResult, SelectedPhoto
 
@@ -62,7 +65,11 @@ class VitupiMainWindow(QMainWindow):
         self.ribbon = RibbonPanel()
         root_layout.addWidget(self.ribbon)
 
-        # 2. Central Canvas (Gallery & A/B Comparator)
+        # 2. Chronological Video Timeline Scrubber
+        self.timeline = VideoTimelineWidget()
+        root_layout.addWidget(self.timeline)
+
+        # 3. Central Canvas (Gallery & A/B Comparator)
         self.canvas = CentralCanvas()
         root_layout.addWidget(self.canvas, stretch=1)
 
@@ -76,6 +83,9 @@ class VitupiMainWindow(QMainWindow):
         self.ribbon.open_folder_clicked.connect(self._on_open_folder)
         self.ribbon.filter_sharpness_changed.connect(self.canvas.filter_by_sharpness)
         self.ribbon.toggle_fullscreen_clicked.connect(self.toggle_fullscreen)
+        self.ribbon.toggle_timeline_clicked.connect(self._on_toggle_timeline)
+        self.ribbon.batch_queue_clicked.connect(self._on_open_batch_dialog)
+        self.ribbon.benchmark_clicked.connect(self._on_open_benchmark_dialog)
         self.ribbon.preset_saved.connect(
             lambda name: self.status_bar.showMessage(f"Custom preset '{name}' saved to persistent storage.", 4000)
         )
@@ -83,6 +93,8 @@ class VitupiMainWindow(QMainWindow):
             lambda name: self.status_bar.showMessage(f"Custom preset '{name}' deleted from disk.", 4000)
         )
         self.canvas.selection_changed.connect(self._on_selection_changed)
+        self.canvas.photo_inspected.connect(self.timeline.select_photo)
+        self.timeline.photo_selected.connect(self.canvas.preview_photo_by_path)
 
         # 3. Status Bar
         self.status_bar = QStatusBar()
@@ -216,6 +228,8 @@ class VitupiMainWindow(QMainWindow):
         self.ribbon.progress_bar.setValue(100)
         self.ribbon.status_label.setText(f"Complete: {len(result.photos)} photos extracted.")
 
+        self.timeline.set_duration(result.metadata.duration_sec)
+        self.timeline.set_photos(result.photos)
         self.canvas.populate_photos(result.photos)
         self._update_status_counts()
 
@@ -306,3 +320,31 @@ class VitupiMainWindow(QMainWindow):
             event.accept()
         else:
             super().keyPressEvent(event)
+
+    def _on_toggle_timeline(self):
+        """Toggle visibility of the chronological video timeline scrubber."""
+        self.timeline.setVisible(not self.timeline.isVisible())
+
+    def _on_open_batch_dialog(self):
+        """Open the multi-video concurrent batch queue dialog."""
+        preset = self.ribbon.preset_combo.currentText()
+        dialog = BatchQueueDialog(parent=self, initial_preset=preset)
+        dialog.exec()
+
+    def _on_open_benchmark_dialog(self):
+        """Open the formal performance and throughput benchmark analytics dialog."""
+        video_path = self.ribbon.video_path_edit.text().strip()
+        if not video_path or not os.path.isfile(video_path):
+            video_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Video to Benchmark",
+                "",
+                "Video Files (*.mp4 *.mov *.mkv *.avi *.webm *.m4v);;All Files (*)",
+            )
+            if not video_path:
+                return
+            self.ribbon.video_path_edit.setText(video_path)
+
+        config = self.ribbon.get_config()
+        dialog = BenchmarkDialog(video_path, config=config, parent=self)
+        dialog.exec()

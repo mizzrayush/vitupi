@@ -33,10 +33,12 @@ ENV/
 
 # Output directories
 photos/
+photos_batch/
 candids/
 portraits/
 output/
 scratch/
+*_benchmark.json
 
 # IDE files
 .vscode/

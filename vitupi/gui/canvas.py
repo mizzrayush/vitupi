@@ -890,6 +890,7 @@ class CentralCanvas(QStackedWidget):
     """Central view area holding the Gallery Grid with Live Right-Side Inspector and the Comparison Inspector."""
 
     selection_changed = pyqtSignal(str, bool)
+    photo_inspected = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -983,7 +984,7 @@ class CentralCanvas(QStackedWidget):
             card.toggled.connect(self._on_card_toggled)
             card.set_compare_a.connect(self._set_compare_a)
             card.set_compare_b.connect(self._set_compare_b)
-            card.preview_requested.connect(self.inspector.inspect_photo)
+            card.preview_requested.connect(self._on_card_preview_requested)
 
             row = idx // cols
             col = idx % cols
@@ -994,7 +995,17 @@ class CentralCanvas(QStackedWidget):
 
         # Pre-load the first photo into the inspector panel
         if photos:
-            self.inspector.inspect_photo(photos[0])
+            self._on_card_preview_requested(photos[0])
+
+    def _on_card_preview_requested(self, photo: SelectedPhoto):
+        self.inspector.inspect_photo(photo)
+        self.photo_inspected.emit(photo.path)
+
+    def preview_photo_by_path(self, path: str):
+        """Preview a photo by path in the inspector panel and notify listeners."""
+        photo = self.photos_map.get(path)
+        if photo:
+            self._on_card_preview_requested(photo)
 
     def _on_card_toggled(self, path: str, checked: bool):
         self.selection_changed.emit(path, checked)

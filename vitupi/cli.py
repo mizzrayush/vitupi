@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=100,
         help="Maximum number of photographs to extract (0 or -1 for unlimited).",
     )
+    extract_cmd.add_argument(
+        "-j", "--workers",
+        type=int,
+        default=None,
+        help="Number of concurrent worker threads for parallel batch processing (default: CPU count).",
+    )
 
     # Granular sampling and threshold controls
     tuning_group = extract_cmd.add_argument_group("Fine-grained Extraction Controls")
@@ -207,6 +213,30 @@ def build_parser() -> argparse.ArgumentParser:
     presets_cmd.add_argument("--motion-blur-penalty", type=float, default=None, help="Motion blur penalty.")
     presets_cmd.add_argument("--flattery", action="store_true", default=None, help="Enable facial flattery.")
     presets_cmd.add_argument("--action-peaks", action="store_true", default=None, help="Enable action peak detection.")
+
+    # Benchmark Subcommand
+    bench_cmd = subparsers.add_parser(
+        "benchmark",
+        help="Run comprehensive performance, FPS throughput, deduplication, and quality benchmarks on a video.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    bench_cmd.add_argument("video", help="Path to video file to benchmark.")
+    bench_cmd.add_argument(
+        "-p", "--preset",
+        default="default",
+        help="Preset to evaluate during benchmark.",
+    )
+    bench_cmd.add_argument(
+        "-m", "--mode",
+        choices=["conservative", "balanced", "exhaustive"],
+        default="balanced",
+        help="Extraction mode to evaluate.",
+    )
+    bench_cmd.add_argument(
+        "-o", "--output-json",
+        default=None,
+        help="Optional destination path to save JSON benchmark report.",
+    )
 
     return parser
 
@@ -373,20 +403,66 @@ def main(argv: List[str] = None) -> int:
                 print(f"No video files found in directory: {target}", file=sys.stderr)
                 return 1
 
-            print(f"Found {len(video_files)} video(s) to process in batch mode.")
-            failures = 0
-            for vid in video_files:
-                base_name = os.path.splitext(os.path.basename(vid))[0]
-                vid_out = os.path.join(args.output, base_name)
-                res = process_single_video(vid, vid_out, config)
-                if res != 0:
-                    failures += 1
+            workers_count = args.workers or min(os.cpu_count() or 4, max(1, len(video_files)))
+            print(f"Found {len(video_files)} video(s). Processing with {workers_count} concurrent worker(s)...")
 
-            print(f"\nBatch processing complete. Total: {len(video_files)}, Failures: {failures}")
-            return 0 if failures == 0 else 1
+            from vitupi.pipeline import batch_extract_pipeline
+
+            def on_progress(done, total, path, res):
+                photos_count = len(res.photos) if res else 0
+                print(f"  [{done}/{total}] Finished: {os.path.basename(path)} ({photos_count} photos)")
+
+            results = batch_extract_pipeline(
+                video_files,
+                output_base_dir=args.output,
+                config=config,
+                max_workers=workers_count,
+                progress_callback=on_progress,
+            )
+
+            total_extracted = sum(len(r.photos) for r in results)
+            print(f"\nBatch processing complete. Successfully processed {len(results)}/{len(video_files)} videos ({total_extracted} total photographs extracted).")
+            return 0
         else:
             print(f"Input path does not exist: {target}", file=sys.stderr)
             return 1
+
+    elif args.command == "benchmark":
+        video_target = args.video
+        if not os.path.isfile(video_target):
+            print(f"Benchmark video file not found: {video_target}", file=sys.stderr)
+            return 1
+
+        from vitupi.benchmark import run_benchmark
+        from vitupi.presets import get_preset_manager
+
+        pm = get_preset_manager()
+        preset_cfg = pm.get_preset_config(args.preset)
+        try:
+            domain_preset = DomainPreset(args.preset.lower())
+        except ValueError:
+            domain_preset = DomainPreset.CUSTOM
+
+        config = VitupiConfig(
+            mode=ExtractionMode(args.mode),
+            preset=domain_preset,
+            custom_name=args.preset if domain_preset == DomainPreset.CUSTOM else None,
+            base_fps=preset_cfg.base_fps,
+            dense_fps=preset_cfg.dense_fps,
+            novelty_threshold=preset_cfg.novelty_threshold,
+            min_sharpness_score=preset_cfg.min_sharpness_score,
+            dedup_threshold=preset_cfg.dedup_threshold,
+        )
+
+        print(f"Running benchmark on: {video_target} (preset: {args.preset}, mode: {args.mode})...")
+        report = run_benchmark(video_target, config=config)
+        print(report.format_table())
+
+        if args.output_json:
+            out_file = report.to_json(args.output_json)
+            print(f"\nBenchmark JSON report saved to: {out_file}")
+
+        return 0
 
     return 0
 

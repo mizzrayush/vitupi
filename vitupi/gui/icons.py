@@ -198,6 +198,55 @@ SVG_ICONS: Dict[str, str] = {
         <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
         <path d="M16 16h5v5"/>
     </svg>""",
+
+    # Timeline / Filmstrip Scrubber
+    "timeline": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <path d="M6 4v16"/>
+        <path d="M10 4v16"/>
+        <path d="M14 4v16"/>
+        <path d="M18 4v16"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+    </svg>""",
+
+    # Benchmark / Gauge Speedometer
+    "benchmark": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v4"/>
+        <path d="m4.93 4.93 2.83 2.83"/>
+        <path d="M2 12h4"/>
+        <path d="m4.93 19.07 2.83-2.83"/>
+        <path d="M12 22a10 10 0 1 0 0-20"/>
+        <path d="m14 10-3 3"/>
+        <circle cx="12" cy="12" r="2"/>
+    </svg>""",
+
+    # Batch / Multi-layer stack
+    "batch": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+        <polyline points="2 17 12 22 22 17"/>
+        <polyline points="2 12 12 17 22 12"/>
+    </svg>""",
+
+    # Queue / List
+    "queue": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" x2="21" y1="6" y2="6"/>
+        <line x1="8" x2="21" y1="12" y2="12"/>
+        <line x1="8" x2="21" y1="18" y2="18"/>
+        <line x1="3" x2="3.01" y1="6" y2="6"/>
+        <line x1="3" x2="3.01" y1="12" y2="12"/>
+        <line x1="3" x2="3.01" y1="18" y2="18"/>
+    </svg>""",
+
+    # Plus / Add
+    "plus": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" x2="12" y1="5" y2="19"/>
+        <line x1="5" x2="19" y1="12" y2="12"/>
+    </svg>""",
+
+    # Minus / Remove
+    "minus": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" x2="19" y1="12" y2="12"/>
+    </svg>""",
 }
 
 

@@ -87,3 +87,20 @@ def test_cli_presets_save_show_and_delete(tmp_path, monkeypatch):
     code = main(["presets", "--delete", "cli_custom"])
     assert code == 0
     assert "cli_custom" not in manager.list_all_presets()
+
+
+def test_cli_benchmark_subcommand():
+    parser = build_parser()
+    args = parser.parse_args(["benchmark", "sample_test.mp4", "-p", "sports", "-o", "report.json"])
+    assert args.command == "benchmark"
+    assert args.video == "sample_test.mp4"
+    assert args.preset == "sports"
+    assert args.output_json == "report.json"
+
+
+def test_cli_batch_workers_argument():
+    parser = build_parser()
+    args = parser.parse_args(["extract", "videos_folder/", "-j", "4"])
+    assert args.command == "extract"
+    assert args.input == "videos_folder/"
+    assert args.workers == 4

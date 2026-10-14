@@ -156,6 +156,9 @@ class RibbonPanel(QTabWidget):
     open_folder_clicked = pyqtSignal()
     filter_sharpness_changed = pyqtSignal(float)
     toggle_fullscreen_clicked = pyqtSignal()
+    batch_queue_clicked = pyqtSignal()
+    benchmark_clicked = pyqtSignal()
+    toggle_timeline_clicked = pyqtSignal()
     preset_saved = pyqtSignal(str)
     preset_deleted = pyqtSignal(str)
 
@@ -327,6 +330,25 @@ class RibbonPanel(QTabWidget):
         self.status_label.setStyleSheet("color: #a0aec0; font-size: 12px;")
 
         action_layout.addWidget(self.btn_start)
+
+        # Batch Queue & Benchmark Quick Buttons
+        batch_bench_row = QHBoxLayout()
+        batch_bench_row.setSpacing(6)
+
+        self.btn_batch = QPushButton(" Batch Queue...")
+        self.btn_batch.setIcon(get_svg_icon("batch", 13, "#00E5FF"))
+        self.btn_batch.setToolTip("Process multiple videos concurrently with multi-worker threads")
+        self.btn_batch.clicked.connect(self.batch_queue_clicked.emit)
+
+        self.btn_benchmark = QPushButton(" Benchmark...")
+        self.btn_benchmark.setIcon(get_svg_icon("benchmark", 13, "#ECC94B"))
+        self.btn_benchmark.setToolTip("Run performance, FPS throughput, and quality analytics")
+        self.btn_benchmark.clicked.connect(self.benchmark_clicked.emit)
+
+        batch_bench_row.addWidget(self.btn_batch)
+        batch_bench_row.addWidget(self.btn_benchmark)
+        action_layout.addLayout(batch_bench_row)
+
         action_layout.addWidget(self.progress_bar)
         action_layout.addWidget(self.status_label)
         layout.addWidget(action_box, stretch=1)
@@ -517,8 +539,16 @@ class RibbonPanel(QTabWidget):
         self.btn_fullscreen.setIcon(get_svg_icon("fullscreen", 14, "#63b3ed"))
         self.btn_fullscreen.clicked.connect(self.toggle_fullscreen_clicked.emit)
 
+        self.btn_timeline = QPushButton(" Timeline")
+        self.btn_timeline.setIcon(get_svg_icon("timeline", 14, "#00E5FF"))
+        self.btn_timeline.setCheckable(True)
+        self.btn_timeline.setChecked(True)
+        self.btn_timeline.setToolTip("Toggle chronological video timeline scrubber")
+        self.btn_timeline.toggled.connect(lambda chk: self.toggle_timeline_clicked.emit())
+
         view_layout.addWidget(btn_gallery)
         view_layout.addWidget(btn_compare)
+        view_layout.addWidget(self.btn_timeline)
         view_layout.addWidget(self.btn_fullscreen)
         layout.addWidget(view_box)
 
