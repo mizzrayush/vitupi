@@ -4,6 +4,7 @@ Modern Ribbon-style top tab panel for Vitupi GUI (inspired by modern studio and 
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from vitupi.config import DomainPreset, ExtractionMode, VitupiConfig
+from vitupi.gui.icons import get_svg_icon, get_svg_pixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -72,22 +73,22 @@ class RibbonPanel(QTabWidget):
         # Tab 1: Home / Quick Extract
         self.home_tab = QWidget()
         self._setup_home_tab()
-        self.addTab(self.home_tab, "🚀  Home & Extract")
+        self.addTab(self.home_tab, get_svg_icon("rocket", 16, "#63b3ed"), "Home & Extract")
 
         # Tab 2: Parameters & Tuning
         self.tuning_tab = QWidget()
         self._setup_tuning_tab()
-        self.addTab(self.tuning_tab, "⚙️  Parameters & Tuning")
+        self.addTab(self.tuning_tab, get_svg_icon("tuning", 16, "#63b3ed"), "Parameters & Tuning")
 
         # Tab 3: Review & Compare
         self.review_tab = QWidget()
         self._setup_review_tab()
-        self.addTab(self.review_tab, "🔍  Review & Compare")
+        self.addTab(self.review_tab, get_svg_icon("compare", 16, "#63b3ed"), "Review & Compare")
 
         # Tab 4: Export & Output
         self.export_tab = QWidget()
         self._setup_export_tab()
-        self.addTab(self.export_tab, "💾  Export & Output")
+        self.addTab(self.export_tab, get_svg_icon("export", 16, "#63b3ed"), "Export & Output")
 
     def _setup_home_tab(self):
         layout = QHBoxLayout(self.home_tab)
@@ -100,11 +101,13 @@ class RibbonPanel(QTabWidget):
 
         self.video_path_edit = QLineEdit()
         self.video_path_edit.setPlaceholderText("Select video file (.mp4, .mov, .mkv, .avi)...")
-        self.btn_browse_video = QPushButton("Browse Video...")
+        self.btn_browse_video = QPushButton(" Browse...")
+        self.btn_browse_video.setIcon(get_svg_icon("video", 14, "#63b3ed"))
         self.btn_browse_video.clicked.connect(self._on_browse_video)
 
         self.output_dir_edit = QLineEdit("candids")
-        self.btn_browse_output = QPushButton("Browse Output...")
+        self.btn_browse_output = QPushButton(" Browse...")
+        self.btn_browse_output.setIcon(get_svg_icon("folder", 14, "#63b3ed"))
         self.btn_browse_output.clicked.connect(self._on_browse_output)
 
         video_layout.addWidget(QLabel("Video:"), 0, 0)
@@ -144,7 +147,8 @@ class RibbonPanel(QTabWidget):
         action_box = QGroupBox("Execution")
         action_layout = QVBoxLayout(action_box)
 
-        self.btn_start = QPushButton("▶  Start Extraction")
+        self.btn_start = QPushButton(" Start Extraction")
+        self.btn_start.setIcon(get_svg_icon("play", 15, "#ffffff"))
         self.btn_start.setMinimumHeight(38)
         self.btn_start.setStyleSheet("""
             QPushButton {
@@ -283,13 +287,16 @@ class RibbonPanel(QTabWidget):
         sel_box = QGroupBox("Batch Selection Tools")
         sel_layout = QHBoxLayout(sel_box)
 
-        btn_select_all = QPushButton("Select All")
+        btn_select_all = QPushButton(" Select All")
+        btn_select_all.setIcon(get_svg_icon("check-square", 14, "#48bb78"))
         btn_select_all.clicked.connect(self.select_all_clicked.emit)
 
-        btn_deselect_all = QPushButton("Deselect All")
+        btn_deselect_all = QPushButton(" Deselect All")
+        btn_deselect_all.setIcon(get_svg_icon("x-circle", 14, "#e53e3e"))
         btn_deselect_all.clicked.connect(self.deselect_all_clicked.emit)
 
-        btn_invert = QPushButton("Invert Selection")
+        btn_invert = QPushButton(" Invert")
+        btn_invert.setIcon(get_svg_icon("invert", 14, "#ecc94b"))
         btn_invert.clicked.connect(self.invert_selection_clicked.emit)
 
         sel_layout.addWidget(btn_select_all)
@@ -301,10 +308,12 @@ class RibbonPanel(QTabWidget):
         view_box = QGroupBox("Display Mode")
         view_layout = QHBoxLayout(view_box)
 
-        btn_gallery = QPushButton("🖼️  Gallery Grid")
+        btn_gallery = QPushButton(" Gallery Grid")
+        btn_gallery.setIcon(get_svg_icon("sparkles", 14, "#63b3ed"))
         btn_gallery.clicked.connect(lambda: self.switch_view_clicked.emit(0))
 
-        btn_compare = QPushButton("⚖️  A/B Side-by-Side Comparison")
+        btn_compare = QPushButton(" A/B Comparison")
+        btn_compare.setIcon(get_svg_icon("compare", 14, "#63b3ed"))
         btn_compare.clicked.connect(lambda: self.switch_view_clicked.emit(1))
 
         view_layout.addWidget(btn_gallery)
@@ -357,7 +366,8 @@ class RibbonPanel(QTabWidget):
         act_box = QGroupBox("Save & Open")
         act_layout = QVBoxLayout(act_box)
 
-        self.btn_export_selected = QPushButton("💾  Save Selected Photos")
+        self.btn_export_selected = QPushButton(" Save Selected Photos")
+        self.btn_export_selected.setIcon(get_svg_icon("export", 16, "#ffffff"))
         self.btn_export_selected.setStyleSheet("""
             QPushButton {
                 background: #38a169;
@@ -371,7 +381,8 @@ class RibbonPanel(QTabWidget):
         """)
         self.btn_export_selected.clicked.connect(self.export_selected_clicked.emit)
 
-        btn_open_folder = QPushButton("📁  Open Destination Folder")
+        btn_open_folder = QPushButton(" Open Output Folder")
+        btn_open_folder.setIcon(get_svg_icon("folder", 14, "#cbd5e0"))
         btn_open_folder.clicked.connect(self.open_folder_clicked.emit)
 
         act_layout.addWidget(self.btn_export_selected)

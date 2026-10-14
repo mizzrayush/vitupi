@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from vitupi.config import DomainPreset, ExtractionMode, VitupiConfig
 from vitupi.gui.canvas import CentralCanvas
+from vitupi.gui.icons import get_svg_icon
 from vitupi.gui.ribbon import RibbonPanel
 from vitupi.gui.worker import ExtractionWorker
 from vitupi.models import ExtractionResult, SelectedPhoto
@@ -32,6 +33,7 @@ class VitupiMainWindow(QMainWindow):
     def __init__(self, initial_video: Optional[str] = None):
         super().__init__()
         self.setWindowTitle("Vitupi (V2P) — Intelligent Video to Photographs Studio")
+        self.setWindowIcon(get_svg_icon("sparkles", 32, "#63b3ed"))
         self.resize(1360, 880)
         self.setMinimumSize(960, 680)
 
@@ -85,6 +87,7 @@ class VitupiMainWindow(QMainWindow):
             QWidget {
                 background-color: #171923;
                 color: #e2e8f0;
+                font-size: 13px;
                 font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
             }
             QGroupBox {

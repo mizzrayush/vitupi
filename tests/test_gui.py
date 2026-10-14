@@ -9,6 +9,7 @@ import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from PyQt6.QtWidgets import QApplication
+from vitupi.gui.icons import get_svg_icon, get_svg_pixmap
 from vitupi.gui.main_window import VitupiMainWindow
 from vitupi.models import SelectedPhoto
 
@@ -21,12 +22,21 @@ def qapp():
     return app
 
 
+def test_svg_icon_generation(qapp):
+    icon_eye = get_svg_icon("eye", 20, "#63b3ed")
+    assert not icon_eye.isNull()
+    pixmap = get_svg_pixmap("compare", 24, "#ffffff")
+    assert not pixmap.isNull()
+    assert pixmap.width() == 24
+
+
 def test_main_window_initialization(qapp):
     win = VitupiMainWindow()
     assert win.windowTitle().startswith("Vitupi (V2P)")
     assert win.ribbon.count() == 4
     assert win.canvas.count() == 2
     assert win.canvas.currentIndex() == 0  # Gallery is default view
+    assert win.canvas.inspector is not None
 
 
 def test_main_window_with_initial_video(qapp, tmp_path):
@@ -54,7 +64,7 @@ def test_ribbon_config_building(qapp):
     assert config.preset.value == "portrait"
 
 
-def test_canvas_populate_and_compare(qapp, tmp_path):
+def test_canvas_populate_and_inspector(qapp, tmp_path):
     win = VitupiMainWindow()
 
     # Create dummy images
@@ -85,6 +95,17 @@ def test_canvas_populate_and_compare(qapp, tmp_path):
     win.canvas.populate_photos([p1, p2])
     assert len(win.canvas.cards) == 2
     assert win.canvas.get_selected_photos() == [str(img1), str(img2)]
+
+    # Verify inspector pre-loaded photo 1
+    assert win.canvas.inspector.current_photo == p1
+    assert "0.420s" in win.canvas.inspector.lbl_time.text()
+
+    # Click preview icon on card 2
+    card2 = win.canvas.cards[str(img2)]
+    assert card2.btn_preview is not None
+    card2.btn_preview.click()
+    assert win.canvas.inspector.current_photo == p2
+    assert "0.840s" in win.canvas.inspector.lbl_time.text()
 
     # Switch view to Compare
     win.canvas.set_view_mode(1)

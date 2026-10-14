@@ -1,13 +1,19 @@
 """
 Central Interactive Canvas for Vitupi GUI.
-Supports Gallery Grid View and Side-by-Side A/B Image Comparison.
+Features:
+- Gallery Grid View with Photo Cards and SVG action buttons
+- Dedicated Right-Side Live Photo Inspector Panel
+- Side-by-Side A/B Candidate Comparator
 """
 
 import os
+import subprocess
+import sys
 from typing import Dict, List, Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPixmap
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QFrame,
@@ -24,15 +30,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from vitupi.gui.icons import get_svg_icon, get_svg_pixmap
 from vitupi.models import SelectedPhoto
 
 
 class PhotoCard(QFrame):
     """Card widget representing an individual extracted photograph."""
 
-    toggled = pyqtSignal(str, bool)  # path, is_selected
-    set_compare_a = pyqtSignal(str)   # path
-    set_compare_b = pyqtSignal(str)   # path
+    toggled = pyqtSignal(str, bool)       # path, is_selected
+    set_compare_a = pyqtSignal(str)        # path
+    set_compare_b = pyqtSignal(str)        # path
+    preview_requested = pyqtSignal(object) # SelectedPhoto
 
     def __init__(self, photo: SelectedPhoto, parent=None):
         super().__init__(parent)
@@ -42,16 +50,16 @@ class PhotoCard(QFrame):
 
     def _init_ui(self):
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setFixedWidth(240)
+        self.setFixedWidth(230)
         self.setStyleSheet("""
             PhotoCard {
-                background-color: #2d3748;
-                border: 2px solid #4a5568;
+                background-color: #232a3b;
+                border: 2px solid #3d4a61;
                 border-radius: 8px;
             }
             PhotoCard:hover {
                 border: 2px solid #63b3ed;
-                background-color: #323f54;
+                background-color: #2c364c;
             }
         """)
 
@@ -59,16 +67,19 @@ class PhotoCard(QFrame):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
-        # Header: Checkbox + Timestamp Badge
+        # Header: Checkbox + Timestamp Badge + Quick Preview Icon
         header = QHBoxLayout()
+        header.setSpacing(6)
+
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(True)
+        self.checkbox.setToolTip("Toggle inclusion for export")
         self.checkbox.toggled.connect(self._on_toggled)
 
         time_str = f"{self.photo.timestamp_sec:.2f}s"
         lbl_time = QLabel(time_str)
         lbl_time.setStyleSheet("""
-            background: #1a202c;
+            background: #171923;
             color: #e2e8f0;
             padding: 2px 6px;
             border-radius: 4px;
@@ -76,27 +87,51 @@ class PhotoCard(QFrame):
             font-size: 11px;
         """)
 
+        # Dedicated Eye / Preview Icon Button
+        self.btn_preview = QPushButton()
+        self.btn_preview.setIcon(get_svg_icon("eye", 15, "#63b3ed"))
+        self.btn_preview.setToolTip("Inspect full resolution in right panel")
+        self.btn_preview.setFixedSize(24, 24)
+        self.btn_preview.setStyleSheet("""
+            QPushButton {
+                background: #171923;
+                border: 1px solid #3d4a61;
+                border-radius: 4px;
+                padding: 1px;
+            }
+            QPushButton:hover {
+                background: #2b6cb0;
+                border-color: #63b3ed;
+            }
+        """)
+        self.btn_preview.clicked.connect(lambda: self.preview_requested.emit(self.photo))
+
         header.addWidget(self.checkbox)
-        header.addStretch()
         header.addWidget(lbl_time)
+        header.addStretch()
+        header.addWidget(self.btn_preview)
         layout.addLayout(header)
 
-        # Image Thumbnail
+        # Image Thumbnail (Clickable to trigger preview)
         self.img_label = QLabel()
-        self.img_label.setFixedHeight(260)
+        self.img_label.setFixedHeight(240)
         self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_label.setStyleSheet("background: #171923; border-radius: 4px;")
+        self.img_label.setStyleSheet("background: #11141c; border-radius: 4px;")
+        self.img_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.img_label.setToolTip("Click to inspect in right preview panel")
+        self.img_label.mousePressEvent = lambda e: self.preview_requested.emit(self.photo)
+
         if os.path.exists(self.photo.path):
             pixmap = QPixmap(self.photo.path)
             scaled = pixmap.scaled(
-                224, 260,
+                214, 240,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
             self.img_label.setPixmap(scaled)
         layout.addWidget(self.img_label)
 
-        # Metrics Bar: Sharpness & Novelty
+        # Metrics Bar: Quality & Scene ID
         metrics = QHBoxLayout()
         quality_pct = int(self.photo.quality_score * 100)
         lbl_quality = QLabel(f"Quality: {quality_pct}%")
@@ -110,16 +145,48 @@ class PhotoCard(QFrame):
         metrics.addWidget(lbl_scene)
         layout.addLayout(metrics)
 
-        # Action Buttons: Compare A / B
+        # Action Buttons: Compare Slot A / Slot B (with SVG Icons)
         actions = QHBoxLayout()
-        btn_a = QPushButton("⚖️ Slot A")
+        actions.setSpacing(6)
+
+        btn_a = QPushButton(" Slot A")
+        btn_a.setIcon(get_svg_icon("slot-a", 13, "#ecc94b"))
         btn_a.setFixedHeight(24)
-        btn_a.setStyleSheet("font-size: 10px; padding: 2px 4px; background: #4a5568;")
+        btn_a.setStyleSheet("""
+            QPushButton {
+                font-size: 11px;
+                padding: 2px 6px;
+                background: #2d3748;
+                border: 1px solid #4a5568;
+                border-radius: 4px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #3182ce;
+                border-color: #63b3ed;
+                color: white;
+            }
+        """)
         btn_a.clicked.connect(lambda: self.set_compare_a.emit(self.photo.path))
 
-        btn_b = QPushButton("⚖️ Slot B")
+        btn_b = QPushButton(" Slot B")
+        btn_b.setIcon(get_svg_icon("slot-b", 13, "#ecc94b"))
         btn_b.setFixedHeight(24)
-        btn_b.setStyleSheet("font-size: 10px; padding: 2px 4px; background: #4a5568;")
+        btn_b.setStyleSheet("""
+            QPushButton {
+                font-size: 11px;
+                padding: 2px 6px;
+                background: #2d3748;
+                border: 1px solid #4a5568;
+                border-radius: 4px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #3182ce;
+                border-color: #63b3ed;
+                color: white;
+            }
+        """)
         btn_b.clicked.connect(lambda: self.set_compare_b.emit(self.photo.path))
 
         actions.addWidget(btn_a)
@@ -131,15 +198,19 @@ class PhotoCard(QFrame):
         if checked:
             self.setStyleSheet("""
                 PhotoCard {
-                    background-color: #2d3748;
-                    border: 2px solid #4a5568;
+                    background-color: #232a3b;
+                    border: 2px solid #3d4a61;
                     border-radius: 8px;
+                }
+                PhotoCard:hover {
+                    border: 2px solid #63b3ed;
+                    background-color: #2c364c;
                 }
             """)
         else:
             self.setStyleSheet("""
                 PhotoCard {
-                    background-color: #1a202c;
+                    background-color: #171923;
                     border: 2px dashed #4a5568;
                     border-radius: 8px;
                     opacity: 0.5;
@@ -149,6 +220,231 @@ class PhotoCard(QFrame):
 
     def set_checked(self, checked: bool):
         self.checkbox.setChecked(checked)
+
+
+class PhotoInspectorPanel(QFrame):
+    """Right-hand docked inspector panel showing full high-res preview and detailed frame metadata."""
+
+    set_compare_a = pyqtSignal(str)
+    set_compare_b = pyqtSignal(str)
+    selection_toggled = pyqtSignal(str, bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.current_photo: Optional[SelectedPhoto] = None
+        self._init_ui()
+
+    def _init_ui(self):
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setMinimumWidth(320)
+        self.setStyleSheet("""
+            PhotoInspectorPanel {
+                background-color: #1a202c;
+                border-left: 2px solid #2d3748;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
+
+        # Header bar with SVG icons
+        header = QHBoxLayout()
+        header.setSpacing(8)
+
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(get_svg_pixmap("eye", 18, "#63b3ed"))
+        title_lbl = QLabel("Frame Inspector")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #63b3ed;")
+
+        self.btn_copy_path = QPushButton()
+        self.btn_copy_path.setIcon(get_svg_icon("copy", 14, "#a0aec0"))
+        self.btn_copy_path.setToolTip("Copy photo file path to clipboard")
+        self.btn_copy_path.setFixedSize(26, 26)
+        self.btn_copy_path.setStyleSheet("""
+            QPushButton { background: #2d3748; border-radius: 4px; border: 1px solid #4a5568; }
+            QPushButton:hover { background: #4a5568; border-color: #63b3ed; }
+        """)
+        self.btn_copy_path.clicked.connect(self._copy_path)
+
+        self.btn_open_ext = QPushButton()
+        self.btn_open_ext.setIcon(get_svg_icon("external-link", 14, "#a0aec0"))
+        self.btn_open_ext.setToolTip("Open in default system photo viewer")
+        self.btn_open_ext.setFixedSize(26, 26)
+        self.btn_open_ext.setStyleSheet("""
+            QPushButton { background: #2d3748; border-radius: 4px; border: 1px solid #4a5568; }
+            QPushButton:hover { background: #4a5568; border-color: #63b3ed; }
+        """)
+        self.btn_open_ext.clicked.connect(self._open_in_external_viewer)
+
+        header.addWidget(icon_lbl)
+        header.addWidget(title_lbl)
+        header.addStretch()
+        header.addWidget(self.btn_copy_path)
+        header.addWidget(self.btn_open_ext)
+        layout.addLayout(header)
+
+        # Large high-resolution image preview container
+        self.img_preview = QLabel("Select any photograph to inspect")
+        self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_preview.setStyleSheet("""
+            background: #11141c;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+            color: #718096;
+            font-size: 13px;
+        """)
+        self.img_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.img_preview, stretch=4)
+
+        # Details / Metrics card
+        metrics_box = QFrame()
+        metrics_box.setStyleSheet("""
+            QFrame {
+                background: #232a3b;
+                border: 1px solid #2d3748;
+                border-radius: 6px;
+            }
+        """)
+        m_layout = QGridLayout(metrics_box)
+        m_layout.setContentsMargins(12, 10, 12, 10)
+        m_layout.setSpacing(8)
+
+        lbl_hdr_time = QLabel("Timestamp:")
+        lbl_hdr_time.setStyleSheet("color: #a0aec0; font-size: 11px;")
+        self.lbl_time = QLabel("—")
+        self.lbl_time.setStyleSheet("font-weight: bold; color: #e2e8f0; font-size: 12px;")
+
+        lbl_hdr_dim = QLabel("Dimensions:")
+        lbl_hdr_dim.setStyleSheet("color: #a0aec0; font-size: 11px;")
+        self.lbl_dim = QLabel("—")
+        self.lbl_dim.setStyleSheet("color: #cbd5e0; font-size: 12px;")
+
+        lbl_hdr_q = QLabel("Quality Score:")
+        lbl_hdr_q.setStyleSheet("color: #a0aec0; font-size: 11px;")
+        self.lbl_quality = QLabel("—")
+        self.lbl_quality.setStyleSheet("font-weight: bold; color: #68d391; font-size: 12px;")
+
+        lbl_hdr_nov = QLabel("Visual Novelty:")
+        lbl_hdr_nov.setStyleSheet("color: #a0aec0; font-size: 11px;")
+        self.lbl_novelty = QLabel("—")
+        self.lbl_novelty.setStyleSheet("color: #63b3ed; font-size: 12px;")
+
+        lbl_hdr_sc = QLabel("Scene Cut #:")
+        lbl_hdr_sc.setStyleSheet("color: #a0aec0; font-size: 11px;")
+        self.lbl_scene = QLabel("—")
+        self.lbl_scene.setStyleSheet("color: #ecc94b; font-size: 12px;")
+
+        m_layout.addWidget(lbl_hdr_time, 0, 0)
+        m_layout.addWidget(self.lbl_time, 0, 1)
+        m_layout.addWidget(lbl_hdr_dim, 1, 0)
+        m_layout.addWidget(self.lbl_dim, 1, 1)
+        m_layout.addWidget(lbl_hdr_q, 2, 0)
+        m_layout.addWidget(self.lbl_quality, 2, 1)
+        m_layout.addWidget(lbl_hdr_nov, 3, 0)
+        m_layout.addWidget(self.lbl_novelty, 3, 1)
+        m_layout.addWidget(lbl_hdr_sc, 4, 0)
+        m_layout.addWidget(self.lbl_scene, 4, 1)
+
+        layout.addWidget(metrics_box, stretch=1)
+
+        # Quick action buttons for the inspected frame
+        actions_box = QHBoxLayout()
+        actions_box.setSpacing(8)
+
+        self.btn_slot_a = QPushButton(" Send to Slot A")
+        self.btn_slot_a.setIcon(get_svg_icon("slot-a", 14, "#ecc94b"))
+        self.btn_slot_a.setStyleSheet("""
+            QPushButton {
+                background: #2d3748;
+                border: 1px solid #4a5568;
+                font-weight: 600;
+                padding: 6px 12px;
+                border-radius: 4px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #3182ce;
+                border-color: #63b3ed;
+                color: white;
+            }
+        """)
+        self.btn_slot_a.clicked.connect(self._on_slot_a)
+
+        self.btn_slot_b = QPushButton(" Send to Slot B")
+        self.btn_slot_b.setIcon(get_svg_icon("slot-b", 14, "#ecc94b"))
+        self.btn_slot_b.setStyleSheet("""
+            QPushButton {
+                background: #2d3748;
+                border: 1px solid #4a5568;
+                font-weight: 600;
+                padding: 6px 12px;
+                border-radius: 4px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #3182ce;
+                border-color: #63b3ed;
+                color: white;
+            }
+        """)
+        self.btn_slot_b.clicked.connect(self._on_slot_b)
+
+        actions_box.addWidget(self.btn_slot_a)
+        actions_box.addWidget(self.btn_slot_b)
+        layout.addLayout(actions_box)
+
+    def inspect_photo(self, photo: SelectedPhoto):
+        """Display full details of the given photo in the inspector."""
+        self.current_photo = photo
+        if not photo or not os.path.exists(photo.path):
+            self.img_preview.setText("Image not available")
+            return
+
+        pixmap = QPixmap(photo.path)
+        scaled = pixmap.scaled(
+            420, 500,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.img_preview.setPixmap(scaled)
+
+        # Update metadata labels
+        time_fmt = f"{photo.timestamp_sec:.3f}s (Frame #{photo.frame_index})"
+        self.lbl_time.setText(time_fmt)
+
+        w, h = photo.dimensions
+        ratio_str = "Portrait" if h > w else "Landscape" if w > h else "Square"
+        self.lbl_dim.setText(f"{w} × {h} px ({ratio_str})")
+
+        quality_pct = int(photo.quality_score * 100)
+        self.lbl_quality.setText(f"{quality_pct}% (Score: {photo.quality_score:.3f})")
+
+        self.lbl_novelty.setText(f"{photo.novelty_score:.4f}")
+        self.lbl_scene.setText(f"Shot Segment #{photo.scene_id}")
+
+    def _on_slot_a(self):
+        if self.current_photo:
+            self.set_compare_a.emit(self.current_photo.path)
+
+    def _on_slot_b(self):
+        if self.current_photo:
+            self.set_compare_b.emit(self.current_photo.path)
+
+    def _copy_path(self):
+        if self.current_photo:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(os.path.abspath(self.current_photo.path))
+
+    def _open_in_external_viewer(self):
+        if self.current_photo and os.path.exists(self.current_photo.path):
+            abs_path = os.path.abspath(self.current_photo.path)
+            if sys.platform == "win32":
+                os.startfile(abs_path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", abs_path])
+            else:
+                subprocess.Popen(["xdg-open", abs_path])
 
 
 class ComparisonPanel(QWidget):
@@ -170,20 +466,35 @@ class ComparisonPanel(QWidget):
 
         # Quick resolution controls
         action_bar = QHBoxLayout()
-        lbl_title = QLabel("🔍 Side-by-Side Candidate Comparator")
+        icon_cmp = QLabel()
+        icon_cmp.setPixmap(get_svg_pixmap("compare", 20, "#63b3ed"))
+        lbl_title = QLabel("Side-by-Side Candidate Comparator")
         lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #63b3ed;")
 
-        btn_keep_a = QPushButton("✅ Keep Only A (Deselect B)")
-        btn_keep_a.setStyleSheet("background: #2b6cb0; font-weight: bold; padding: 6px 12px;")
+        btn_keep_a = QPushButton(" Keep Only A")
+        btn_keep_a.setIcon(get_svg_icon("check", 14, "#ffffff"))
+        btn_keep_a.setStyleSheet("""
+            QPushButton { background: #2b6cb0; font-weight: bold; padding: 6px 14px; border-radius: 4px; }
+            QPushButton:hover { background: #3182ce; }
+        """)
         btn_keep_a.clicked.connect(self._keep_only_a)
 
-        btn_keep_b = QPushButton("✅ Keep Only B (Deselect A)")
-        btn_keep_b.setStyleSheet("background: #2b6cb0; font-weight: bold; padding: 6px 12px;")
+        btn_keep_b = QPushButton(" Keep Only B")
+        btn_keep_b.setIcon(get_svg_icon("check", 14, "#ffffff"))
+        btn_keep_b.setStyleSheet("""
+            QPushButton { background: #2b6cb0; font-weight: bold; padding: 6px 14px; border-radius: 4px; }
+            QPushButton:hover { background: #3182ce; }
+        """)
         btn_keep_b.clicked.connect(self._keep_only_b)
 
         btn_keep_both = QPushButton("Keep Both")
+        btn_keep_both.setStyleSheet("""
+            QPushButton { background: #2d3748; padding: 6px 12px; border-radius: 4px; }
+            QPushButton:hover { background: #4a5568; }
+        """)
         btn_keep_both.clicked.connect(self._keep_both)
 
+        action_bar.addWidget(icon_cmp)
         action_bar.addWidget(lbl_title)
         action_bar.addStretch()
         action_bar.addWidget(btn_keep_a)
@@ -316,7 +627,7 @@ class ComparisonPanel(QWidget):
 
 
 class CentralCanvas(QStackedWidget):
-    """Central view area holding the Gallery Grid and the Comparison Inspector."""
+    """Central view area holding the Gallery Grid with Live Right-Side Inspector and the Comparison Inspector."""
 
     selection_changed = pyqtSignal(str, bool)
 
@@ -326,7 +637,19 @@ class CentralCanvas(QStackedWidget):
         self._init_ui()
 
     def _init_ui(self):
-        # View 0: Scrollable Gallery Grid
+        # View 0: Gallery Grid Splitter (Scrollable Cards on Left, Inspector on Right)
+        self.gallery_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.gallery_splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #2d3748;
+                width: 3px;
+            }
+            QSplitter::handle:hover {
+                background: #63b3ed;
+            }
+        """)
+
+        # Left: Scrollable Gallery Grid
         self.gallery_scroll = QScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
         self.gallery_scroll.setStyleSheet("QScrollArea { border: none; background: #171923; }")
@@ -339,7 +662,19 @@ class CentralCanvas(QStackedWidget):
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         self.gallery_scroll.setWidget(self.gallery_container)
-        self.addWidget(self.gallery_scroll)
+        self.gallery_splitter.addWidget(self.gallery_scroll)
+
+        # Right: Live Photo Inspector Panel (fills the previously empty right side)
+        self.inspector = PhotoInspectorPanel()
+        self.inspector.set_compare_a.connect(self._set_compare_a)
+        self.inspector.set_compare_b.connect(self._set_compare_b)
+        self.gallery_splitter.addWidget(self.inspector)
+
+        # Allocate 70% space to grid, 30% to inspector
+        self.gallery_splitter.setStretchFactor(0, 3)
+        self.gallery_splitter.setStretchFactor(1, 1)
+
+        self.addWidget(self.gallery_splitter)
 
         # View 1: A/B Comparison View
         self.compare_view = ComparisonPanel()
@@ -359,12 +694,13 @@ class CentralCanvas(QStackedWidget):
             if widget:
                 widget.setParent(None)
 
-        cols = 4
+        cols = 3  # Optimized column count to fit comfortably alongside the right inspector
         for idx, photo in enumerate(photos):
             card = PhotoCard(photo)
             card.toggled.connect(self._on_card_toggled)
             card.set_compare_a.connect(self._set_compare_a)
             card.set_compare_b.connect(self._set_compare_b)
+            card.preview_requested.connect(self.inspector.inspect_photo)
 
             row = idx // cols
             col = idx % cols
@@ -372,6 +708,10 @@ class CentralCanvas(QStackedWidget):
             self.cards[photo.path] = card
 
         self.compare_view.set_photos(photos)
+
+        # Pre-load the first photo into the inspector panel
+        if photos:
+            self.inspector.inspect_photo(photos[0])
 
     def _on_card_toggled(self, path: str, checked: bool):
         self.selection_changed.emit(path, checked)
