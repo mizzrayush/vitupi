@@ -31,7 +31,7 @@ env/
 venv/
 ENV/
 
-# Output directories
+# Output directories & Extracted Photos
 photos/
 photos_batch/
 candids/
@@ -39,6 +39,10 @@ portraits/
 output/
 scratch/
 *_benchmark.json
+*.jpg
+*.jpeg
+*.png
+*.webp
 
 # Local sample videos
 example/
