@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vitupi"
+version = "0.1.0"
+description = "V2P: Video to Photos — Intelligent, content-aware photograph extraction from videos"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Vitupi Developers" }
+]
+keywords = ["video", "photo-extraction", "keyframes", "computer-vision", "opencv", "photography"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "opencv-python>=4.8.0",
+    "scenedetect[opencv]>=0.6.2",
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+ai = [
+    "scikit-image>=0.21.0",
+]
+
+[project.scripts]
+vitupi = "vitupi.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vitupi*"]
