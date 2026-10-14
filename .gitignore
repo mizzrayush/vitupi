@@ -40,6 +40,14 @@ output/
 scratch/
 *_benchmark.json
 
+# Local sample videos
+example/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+
 # IDE files
 .vscode/
 .idea/
