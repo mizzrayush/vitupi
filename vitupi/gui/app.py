@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import QApplication
 from vitupi.gui.main_window import VitupiMainWindow
 
 
-def launch_gui(initial_video: str = None, fullscreen: bool = True) -> int:
-    """Launch the Vitupi PyQt6 GUI application in full screen mode."""
+def launch_gui(initial_video: str = None, fullscreen: bool = False) -> int:
+    """Launch the Vitupi PyQt6 GUI application in maximized desktop window mode."""
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
