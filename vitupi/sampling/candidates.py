@@ -11,9 +11,15 @@ from vitupi.models import CandidateFrame
 class CandidateGenerator:
     """Manages the creation and collection of candidate frames for evaluation."""
 
-    def __init__(self, novelty_threshold: float = 0.35, min_temporal_distance: float = 0.5):
+    def __init__(
+        self,
+        novelty_threshold: float = 0.10,
+        min_temporal_distance: float = 0.5,
+        max_temporal_gap: float = 3.0,
+    ):
         self.novelty_threshold = novelty_threshold
         self.min_temporal_distance = min_temporal_distance
+        self.max_temporal_gap = max_temporal_gap
         self._last_candidate_time: float = -999.0
         self.candidates: List[CandidateFrame] = []
 
@@ -39,11 +45,14 @@ class CandidateGenerator:
         Returns:
             CandidateFrame if added, None otherwise.
         """
-        # Respect minimum temporal distance between candidates unless forced
-        if not force_candidate and (timestamp_sec - self._last_candidate_time) < self.min_temporal_distance:
+        time_since_last = timestamp_sec - self._last_candidate_time
+        gap_exceeded = (self._last_candidate_time >= 0) and (time_since_last >= self.max_temporal_gap)
+
+        # Respect minimum temporal distance between candidates unless forced or gap exceeded
+        if not force_candidate and not gap_exceeded and time_since_last < self.min_temporal_distance:
             return None
 
-        if force_candidate or novelty_score >= self.novelty_threshold:
+        if force_candidate or gap_exceeded or novelty_score >= self.novelty_threshold:
             candidate = CandidateFrame(
                 frame_index=frame_idx,
                 timestamp_sec=timestamp_sec,

@@ -33,6 +33,7 @@ ENV/
 
 # Output directories
 photos/
+candids/
 output/
 scratch/
 

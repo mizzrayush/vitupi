@@ -62,6 +62,7 @@ class ExtractionPipeline:
         candidate_gen = CandidateGenerator(
             novelty_threshold=self.config.novelty_threshold,
             min_temporal_distance=self.config.min_temporal_distance,
+            max_temporal_gap=self.config.max_temporal_gap,
         )
 
         current_scene_idx = 0
