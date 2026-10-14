@@ -9,16 +9,20 @@ from vitupi.models import CandidateFrame
 
 def suppress_near_duplicates(
     candidates: List[CandidateFrame],
-    threshold: int = 10,
+    threshold: int = 6,
+    burst_window_sec: float = 5.0,
 ) -> Tuple[List[CandidateFrame], int]:
     """Identify and mark redundant candidate frames using perceptual hash comparisons.
 
-    When two frames have Hamming distance <= threshold, the one with higher composite
-    quality is preserved, while the other is rejected.
+    When two frames have Hamming distance <= threshold within a temporal burst window,
+    the one with higher composite quality is preserved, while the other is rejected.
+    Outside the temporal window, only near-exact matches (dist <= 3) are suppressed to prevent
+    distant moments with similar background horizons from being falsely discarded.
 
     Args:
         candidates: List of CandidateFrame objects.
-        threshold: Max Hamming distance to be considered a duplicate (default: 10).
+        threshold: Max Hamming distance within a temporal burst (default: 6).
+        burst_window_sec: Maximum time delta in seconds to consider two frames part of the same moment.
 
     Returns:
         (filtered_candidates, duplicates_suppressed_count)
@@ -41,7 +45,12 @@ def suppress_near_duplicates(
         for existing in accepted:
             assert existing.phash is not None
             dist = hamming_distance(candidate.phash, existing.phash)
-            if dist <= threshold:
+            time_delta = abs(candidate.timestamp_sec - existing.timestamp_sec)
+
+            # Within a localized burst, use standard threshold. Outside burst, only suppress exact duplicates.
+            effective_threshold = threshold if time_delta <= burst_window_sec else min(threshold, 3)
+
+            if dist <= effective_threshold:
                 is_duplicate = True
                 # If current candidate has noticeably higher quality, swap them
                 if candidate.composite_quality > (existing.composite_quality + 0.1):

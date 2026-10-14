@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     extract_cmd.add_argument(
         "-p", "--preset",
-        choices=["default", "sports", "security", "candid"],
+        choices=["default", "sports", "security", "candid", "portrait"],
         default="default",
         help="Domain-specific preset (default: default)",
     )

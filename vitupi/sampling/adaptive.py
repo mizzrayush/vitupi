@@ -13,6 +13,7 @@ class AdaptiveSampler:
         self.dense_fps = dense_fps
         self.burst_duration_sec = burst_duration_sec
         self._burst_until_sec: float = -1.0
+        self._last_sample_sec: float = -999.0
 
     def trigger_burst(self, current_time_sec: float) -> None:
         """Trigger dense temporal sampling starting now for burst_duration_sec."""
@@ -25,10 +26,13 @@ class AdaptiveSampler:
         return self.base_fps
 
     def should_sample_frame(self, frame_idx: int, source_fps: float, current_time_sec: float) -> bool:
-        """Evaluate if the current frame index should be processed given the adaptive rate."""
+        """Evaluate if the current timestamp should be processed given the adaptive rate."""
         target_fps = self.get_target_fps(current_time_sec)
-        if target_fps >= source_fps:
-            return True
+        if target_fps <= 0:
+            return False
 
-        step = max(1, int(round(source_fps / target_fps)))
-        return (frame_idx % step) == 0
+        min_interval = 1.0 / target_fps
+        if (current_time_sec - self._last_sample_sec) >= (min_interval - 1e-4):
+            self._last_sample_sec = current_time_sec
+            return True
+        return False

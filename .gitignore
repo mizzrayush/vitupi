@@ -34,6 +34,7 @@ ENV/
 # Output directories
 photos/
 candids/
+portraits/
 output/
 scratch/
 
